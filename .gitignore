@@ -1,0 +1,7 @@
+.DS_Store
+build/
+*.trace/
+*.memgraph
+*.xcresult
+__pycache__/
+*.py[cod]

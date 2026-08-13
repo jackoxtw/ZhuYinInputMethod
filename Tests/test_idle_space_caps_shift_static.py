@@ -1,0 +1,28 @@
+from pathlib import Path
+
+root = Path(__file__).resolve().parents[1]
+controller = (root / 'App' / 'ZYInputController.mm').read_text('utf-8')
+
+# Candidate shortcuts must remain ahead of Latin Shift handling.
+shortcut = 'if(_candidateCount&&shift){NSInteger slot=shiftSlot(event.keyCode);'
+latin_marker = 'if(shift&&isASCIIEnglishLetter(event.characters))'
+assert shortcut in controller
+assert latin_marker in controller
+assert controller.index(shortcut) < controller.index(latin_marker), 'candidate Shift shortcuts must keep priority'
+
+# With no candidate active, Shift+letter case is controlled only by Caps Lock.
+latin_start = controller.index(latin_marker)
+latin_end = controller.index('NSUInteger pageSize=', latin_start)
+latin_block = controller[latin_start:latin_end]
+assert 'NSEventModifierFlagCapsLock' in latin_block, 'Shift Latin path must read Caps Lock explicitly'
+assert '_candidateCount' in latin_block, 'Caps-only casing must be scoped to no-candidate input'
+assert 'lowercaseString' in latin_block, 'Caps Lock off must normalize Shift+letter to lowercase'
+assert 'uppercaseString' in latin_block, 'Caps Lock on must normalize Shift+letter to uppercase'
+
+# Idle Space must bypass pending punctuation/learning and insert a real space directly.
+space_case = controller.split('case 49:', 1)[1].split('case 36:', 1)[0]
+assert '[client insertText:@" " replacementRange:NSMakeRange(NSNotFound,NSNotFound)]' in space_case, 'idle Space must insert directly into client'
+assert '_pieceCount' in space_case and '_candidateCount' in space_case, 'direct Space must be restricted to a truly idle input state'
+assert '[self appendPunctuation:@" " client:client]' in space_case, 'pending-piece Space behavior must remain available'
+
+print('test_idle_space_caps_shift_static: OK')

@@ -1,0 +1,13 @@
+# Built-in Taiwan core corrections. Full character readings are refreshed from libchewing-data during macOS build.
+# Source format: Character,Category,Bopomofo
+期,0,ㄑㄧˊ
+行,0,ㄏㄤˋ
+行,0,ㄏㄤˊ
+行,0,ㄒㄧㄥˋ
+行,0,ㄒㄧㄥˊ
+重,0,ㄓㄨㄥˋ
+重,0,ㄔㄨㄥˊ
+長,0,ㄓㄤˇ
+長,0,ㄔㄤˊ
+樂,0,ㄌㄜˋ
+樂,0,ㄩㄝˋ
