@@ -1,6 +1,6 @@
 from pathlib import Path
 
-app = Path(__file__).resolve().parents[1] / 'Release' / '逐音輸入法-v0.1.46' / '逐音輸入法.app'
+app = Path(__file__).resolve().parents[1] / 'Release' / '逐音輸入法-v0.1.47' / '逐音輸入法.app'
 info = (app / 'Contents' / 'Info.plist').read_text(encoding='utf-8')
 top_level = info.split('<key>ComponentInputModeDict</key>', 1)[0]
 

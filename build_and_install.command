@@ -213,12 +213,23 @@ if [[ "$RELEASE_ONLY" -eq 1 ]]; then
   RELEASE_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$CONTENTS/Info.plist")"
   RELEASE_DIR="$PWD/Release/逐音輸入法-v$RELEASE_VERSION"
   RELEASE_APP="$RELEASE_DIR/逐音輸入法.app"
+  RELEASE_ZIP="$PWD/Release/逐音輸入法-v$RELEASE_VERSION.zip"
+  PACKAGE_DIR="$PWD/Packaging"
   mkdir -p "$RELEASE_DIR"
   rm -rf "$RELEASE_APP"
-  # Keep the user-facing installer and instructions in the Release folder;
-  # only replace the freshly compiled, signed App bundle.
+  rm -f "$RELEASE_DIR/安裝逐音輸入法.command" "$RELEASE_DIR/說明.txt"
   ditto "$APP" "$RELEASE_APP"
-  chmod 755 "$RELEASE_DIR/安裝逐音輸入法.command" 2>/dev/null || true
+  xattr -cr "$RELEASE_APP"
+  /usr/bin/codesign --verify --deep --strict "$RELEASE_APP"
+  # Do not propagate Finder / file-provider extended attributes to release files.
+  cp -X "$PACKAGE_DIR/安裝逐音輸入法.command" "$RELEASE_DIR/安裝逐音輸入法.command"
+  cp -X "$PACKAGE_DIR/說明.txt" "$RELEASE_DIR/說明.txt"
+  chmod 755 "$RELEASE_DIR/安裝逐音輸入法.command"
+  rm -f "$RELEASE_ZIP"
+  (
+    cd "$PWD/Release"
+    /usr/bin/zip -qry -X "$(basename "$RELEASE_ZIP")" "$(basename "$RELEASE_DIR")"
+  )
   success "Release 已建立：$RELEASE_DIR"
   info "已編譯、簽署並放入 Release；未安裝到目前系統。"
   exit 0

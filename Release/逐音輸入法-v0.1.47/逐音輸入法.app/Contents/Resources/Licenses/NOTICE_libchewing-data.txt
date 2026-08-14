@@ -1,0 +1,8 @@
+Taiwan single-character pronunciation data used by the dictionary repair step is sourced from libchewing-data:
+https://github.com/chewing/libchewing-data
+
+Source file: dict/chewing/word.csv
+SPDX-License-Identifier: LGPL-2.1-or-later
+
+The build script may download the full source file to refresh Taiwan readings.
+A copy of the LGPL 2.1 license is included as LICENSE_libchewing-data_LGPL-2.1.txt.
