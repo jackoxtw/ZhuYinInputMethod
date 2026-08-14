@@ -216,18 +216,19 @@ static NSArray<NSString*> *ZYCandidateShortcuts(void){
 
 static NSDictionary *ZYCandidateTextAttributes(CGFloat fontSize){
     static NSDictionary *attrs[7]={nil,nil,nil,nil,nil,nil,nil};
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        NSParagraphStyle *paragraph=ZYSharedCandidateParagraphStyle();
-        for(NSInteger size=12;size<=18;size++){
-            attrs[size-12]=@{NSFontAttributeName:[NSFont systemFontOfSize:(CGFloat)size weight:NSFontWeightMedium],
-                             NSForegroundColorAttributeName:NSColor.whiteColor,
-                             NSParagraphStyleAttributeName:paragraph};
-        }
-    });
     NSInteger size=(NSInteger)llround(fontSize);
     size=MAX((NSInteger)12,MIN((NSInteger)18,size));
-    return attrs[size-12];
+    NSInteger index=size-12;
+    // The normal input path uses one candidate font size at a time.  Creating
+    // every system font from 12 through 18 on the first completed syllable can
+    // eagerly start expensive FontServices/graphics caches.  Keep the same
+    // immutable attributes, but instantiate only the actually used size.
+    if(!attrs[index]){
+        attrs[index]=@{NSFontAttributeName:[NSFont systemFontOfSize:(CGFloat)size weight:NSFontWeightMedium],
+                      NSForegroundColorAttributeName:NSColor.whiteColor,
+                      NSParagraphStyleAttributeName:ZYSharedCandidateParagraphStyle()};
+    }
+    return attrs[index];
 }
 
 static NSDictionary *ZYModeLabelAttributes(void){
@@ -322,22 +323,25 @@ static NSDictionary *ZYClearLearningLabelAttributes(void){
         }
 
         NSString *w=self.words[i];
-        NSParagraphStyle *paragraph=candidateParagraph;
-
         NSRect textRect=NSInsetRect(r,self.columns>=10?4:8,self.columns>=10?4:6);
         if(self.columns<10) textRect.origin.y+=2;
-
         CGFloat fontSize=_textFontSizes[i]>0.0?_textFontSizes[i]:(self.columns>=10?(w.length>3?13.0:18.0):(self.columns==5?16.0:15.0));
         NSDictionary *attrs=ZYCandidateTextAttributes(fontSize);
         CGFloat dy=_textVerticalOffsets[i];
         textRect.origin.y+=dy;
         textRect.size.height-=dy;
-
         [NSGraphicsContext saveGraphicsState];
         NSRectClip(r);
-        [w drawWithRect:textRect
-                options:NSStringDrawingUsesLineFragmentOrigin|NSStringDrawingUsesFontLeading
-             attributes:attrs];
+        if(self.columns==4){
+            [w drawWithRect:textRect
+                    options:NSStringDrawingUsesLineFragmentOrigin|NSStringDrawingUsesFontLeading
+                 attributes:attrs];
+        }else{
+            NSFont *font=attrs[NSFontAttributeName];
+            CGFloat baseline=NSMinY(textRect)+(NSHeight(textRect)-(font.ascender-font.descender))/2.0-font.descender;
+            NSPoint textOrigin=NSMakePoint(NSMidX(textRect)-w.length*fontSize/2.0,baseline);
+            [w drawAtPoint:textOrigin withAttributes:attrs];
+        }
         [NSGraphicsContext restoreGraphicsState];
     }
 

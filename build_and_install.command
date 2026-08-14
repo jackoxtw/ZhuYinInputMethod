@@ -23,6 +23,15 @@ notice(){ printf '%b  %s%b\n' "$C_MAGENTA" "$1" "$C_RESET"; }
 meta(){ printf '%b  %s%b\n' "$C_DIM" "$1" "$C_RESET"; }
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
+RELEASE_ONLY=0
+if [[ "${1:-}" == "--release-only" ]]; then
+  RELEASE_ONLY=1
+  shift
+fi
+if [[ "$#" -ne 0 ]]; then
+  fail "未知參數：$1（僅支援 --release-only）"
+  exit 1
+fi
 step "1/7 檢查編譯環境"
 if [[ "$(uname -s)" != "Darwin" ]]; then
   fail "此腳本只能在 macOS 執行。"
@@ -192,6 +201,22 @@ xattr -cr "$APP"
 /usr/bin/codesign --force --deep --sign - "$APP"
 /usr/bin/codesign --verify --deep --strict "$APP"
 success "App 簽署與驗證完成"
+
+if [[ "$RELEASE_ONLY" -eq 1 ]]; then
+  step "7/7 建立 Release"
+  RELEASE_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$CONTENTS/Info.plist")"
+  RELEASE_DIR="$PWD/Release/逐音輸入法-v$RELEASE_VERSION"
+  RELEASE_APP="$RELEASE_DIR/逐音輸入法.app"
+  mkdir -p "$RELEASE_DIR"
+  rm -rf "$RELEASE_APP"
+  # Keep the user-facing installer and instructions in the Release folder;
+  # only replace the freshly compiled, signed App bundle.
+  ditto "$APP" "$RELEASE_APP"
+  chmod 755 "$RELEASE_DIR/安裝逐音輸入法.command" 2>/dev/null || true
+  success "Release 已建立：$RELEASE_DIR"
+  info "已編譯、簽署並放入 Release；未安裝到目前系統。"
+  exit 0
+fi
 
 step "7/7 安裝與重新註冊輸入法"
 notice "接下來可能要求輸入 macOS 管理員密碼。"

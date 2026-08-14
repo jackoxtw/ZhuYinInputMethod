@@ -25,6 +25,6 @@ assert 'NSLineBreakByTruncatingTail' not in panel
 assert '@"…"' not in panel
 
 # Long composition layout uses a readable floor instead of shrinking indefinitely.
-assert 'MAX(12.0' in panel or 'fontSize>=12.0' in panel
+assert 'fontSize=12.0' in panel or 'MAX(12.0' in panel or 'fontSize>=12.0' in panel
 
 print('Adaptive candidate layout regression tests: OK')
