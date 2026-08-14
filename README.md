@@ -1,3 +1,12 @@
+<p align="center">
+  <img src="icon/icon.png" alt="逐音輸入法圖示" width="96">
+</p>
+
+<p align="center">
+  <a href="https://jackoxtw.github.io/ZhuYinInputMethod/">線上試用 HTML 原型</a><br>
+  <sub>這是 Canvas 互動原型；可安裝的 macOS 輸入法請下載 Release。</sub>
+</p>
+
 # 逐音輸入法
 
 **逐音輸入法**是一套原生 macOS 台灣注音輸入法，使用 InputMethodKit + Objective-C++ 製作介面，核心查詞、學習與繁簡轉換以 C99 實作。專案不使用 WebView，主詞庫與繁簡資料以唯讀二進位格式載入，目標是維持低常駐記憶體、低 SSD 寫入與快速候選反應。

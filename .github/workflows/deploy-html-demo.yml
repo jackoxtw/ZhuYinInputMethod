@@ -1,0 +1,47 @@
+name: Deploy HTML demo
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Docs/Reference/台灣注音輸入法_Canvas_單檔版(20260812-065531).html'
+      - '.github/workflows/deploy-html-demo.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Prepare HTML demo
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          cp 'Docs/Reference/台灣注音輸入法_Canvas_單檔版(20260812-065531).html' _site/index.html
+          touch _site/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
