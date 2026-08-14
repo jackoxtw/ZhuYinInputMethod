@@ -15,9 +15,9 @@
 </style>
 </head>
 <body>
-<div class="title"><h1>台灣注音輸入法 · Canvas Prototype</h1><span>低記憶體詞庫｜聲母縮寫｜雙排候選｜中英切換｜繁入簡出｜中文標點｜離線單檔</span></div>
+<div class="title"><h1>台灣注音輸入法 · Canvas Prototype</h1><span>低記憶體詞庫｜聲母縮寫｜自適應候選｜中英切換｜繁入簡出｜中文標點｜離線單檔</span></div>
 <canvas id="imeCanvas" tabindex="0" role="application" aria-label="Canvas 注音輸入法"></canvas>
-<div class="note">單按 <b>Shift</b> 可切換中／英輸入；Shift 若搭配候選快捷鍵或標點則不切換。雙排候選可用 <b>← → ↑ ↓</b> 選字、<b>PageUp/PageDown</b> 翻頁、<b>Home/End</b> 跳首尾，亦可用 <b>Shift+1～0</b> 與 <b>Shift+A～J</b> 快速選字。中文模式 <b>Shift+, / Shift+. / Shift+/</b> 分別輸出「，」「。」「？」；英文模式輸出半形。中文候選、姓名與自訂詞學習永遠維持繁體；右上角可切換繁／簡，簡體只在 Enter 最終送出時轉換。</div>
+<div class="note">單按 <b>Shift</b> 會先送出未確認中文，再切換中／英輸入；Shift 若搭配候選快捷鍵或標點則不切換。候選會依詞長自適應排列，可用 <b>← → ↑ ↓</b> 選字、<b>PageUp/PageDown</b> 翻頁、<b>Home/End</b> 跳首尾，亦可用 <b>Shift+1～0</b> 與 <b>Shift+A～J</b> 快速選字。按住 <b>Option</b> 時，僅已學習候選顯示「刪除」，點選即可移除。中文模式 <b>Shift+, / Shift+. / Shift+/</b> 分別輸出「，」「。」「？」；英文模式輸出半形。中文候選、姓名與自訂詞學習永遠維持繁體；候選面板右側可切換繁／簡，簡體只在 Enter 最終送出時轉換。</div>
 <script>
 (function(root, factory){
   const api = factory();
@@ -306,7 +306,7 @@
       const first=firstBpmf(input); if(!first) return [];
       const [a,b]=bucketRange(first); const scored=[];
       const qhash=queryHash(input), qlearn=queryLearned.get(qhash);
-      for(const v of userPhrases.values()){
+      for(const [learningKey,v] of userPhrases.entries()){
         let m=null;
         if(v.pronKey) m=matchPronKey(input,v.pronKey);
         else if(v.query===input) m={matchClass:5,exact:true,remaining:0,matchedChars:Array.from(v.word).length};
@@ -315,7 +315,7 @@
         const exactBonus=m.exact?1200000:0;
         const continuationPenalty=Math.min(240000,(m.remaining||0)*18000);
         const score=7600000 + m.matchClass*450000 + exactBonus - continuationPenalty + Math.min(255,v.count)*8000 + recent;
-        scored.push({id:virtualIdForWord(v.word),word:v.word,score,queryPreferred:m.exact,userPhrase:true,virtual:true,dictionaryExact:m.exact,exactQuery:m.exact,matchClass:m.matchClass,matchedChars:m.matchedChars||0,weight:255,pronKey:v.pronKey||''});
+        scored.push({id:virtualIdForWord(v.word),word:v.word,score,queryPreferred:true,userPhrase:true,learned:true,learningKey,virtual:true,dictionaryExact:m.exact,exactQuery:m.exact,matchClass:m.matchClass,matchedChars:m.matchedChars||0,weight:255,pronKey:v.pronKey||''});
       }
       for(let bi=a;bi<b;bi++){
         const wid=bucketWordIds[bi], m=matchWord(input,wid); if(!m) continue;
@@ -330,7 +330,7 @@
         const knownSequenceBonus=m.exact ? sequencePriority(word,input)*3000 : 0;
         const curatedPhraseBonus=m.exact && weights[wid]===255 && Array.from(word).length>=3 ? 1300000 : 0;
         const score=m.matchClass*1000000 + exactBonus - continuationPenalty + (weights[wid]||0)*1000 + wordUseBonus + queryUseBonus + commonCharBonus + knownSequenceBonus + curatedPhraseBonus;
-        scored.push({id:wid,word,score,queryPreferred,dictionaryExact:m.exact,exactQuery:m.exact,matchClass:m.matchClass,matchedChars:m.matchedChars,weight:weights[wid]||0});
+        scored.push({id:wid,word,score,queryPreferred,learned:!!learn,dictionaryExact:m.exact,exactQuery:m.exact,matchClass:m.matchClass,matchedChars:m.matchedChars,weight:weights[wid]||0});
       }
       // Candidate rows must come from the actual dictionary only.  Earlier versions
       // appended composeFlexible() results here, which surfaced arbitrary concatenations
@@ -346,7 +346,7 @@
       }
       const all=[...dedup.values()];
       all.sort((x,y)=>(y.queryPreferred?1:0)-(x.queryPreferred?1:0) || y.score-x.score || x.word.localeCompare(y.word,'zh-Hant-TW'));
-      const rows=all.map(x=>({id:x.id,word:x.word,score:x.score,matchClass:x.matchClass,matchedChars:x.matchedChars||0,weight:x.weight||0,virtual:!!x.virtual,userPhrase:!!x.userPhrase,dictionaryExact:!!x.dictionaryExact,exactQuery:!!x.exactQuery,pronKey:x.pronKey||'',segmentCandidate:false,consumeInputChars:0}));
+      const rows=all.map(x=>({id:x.id,word:x.word,score:x.score,matchClass:x.matchClass,matchedChars:x.matchedChars||0,weight:x.weight||0,virtual:!!x.virtual,userPhrase:!!x.userPhrase,learned:!!x.learned,learningKey:x.learningKey||'',dictionaryExact:!!x.dictionaryExact,exactQuery:!!x.exactQuery,pronKey:x.pronKey||'',segmentCandidate:false,consumeInputChars:0}));
       if(includeSingles){
         const singles=singleCharSegmentCandidates(input,Math.min(24,limit));
         const seen=new Set(rows.map(x=>x.word));
@@ -379,6 +379,16 @@
       userPhrases.set(key,{query:input,word:text,pronKey:pronKey||old.pronKey||'',count:Math.min(255,old.count+1),last:clock});
       trimOldest(userPhrases,128);
       return true;
+    }
+    function removeCandidateLearning(candidate){
+      if(!candidate || !candidate.learned) return false;
+      if(candidate.userPhrase && candidate.learningKey) return userPhrases.delete(candidate.learningKey);
+      if(!Number.isInteger(candidate.id) || candidate.id<0 || candidate.id>=payload.word_count) return false;
+      let changed=learned.delete(candidate.id);
+      for(const [hash,value] of queryLearned){
+        if(value.id===candidate.id){ queryLearned.delete(hash); changed=true; }
+      }
+      return changed;
     }
     function exportLearning(){
       const w=[...learned.entries()].map(([id,v])=>`${id.toString(36)}.${v.count.toString(36)}.${v.last.toString(36)}`).join(',');
@@ -419,7 +429,7 @@
       }catch(_){ return false; }
     }
     function clearLearning(){ learned.clear(); queryLearned.clear(); userPhrases.clear(); clock=0; }
-    return {lookup,lookupPhrases,learn,learnPhrase,pronunciationKeyForId,exportLearning,importLearning,clearLearning,wordAt,normalizeInput,stats:{wordCount:payload.word_count,indexedWordCount:payload.indexed_word_count,syllableCount:syllables.length}};
+    return {lookup,lookupPhrases,learn,learnPhrase,removeCandidateLearning,pronunciationKeyForId,exportLearning,importLearning,clearLearning,wordAt,normalizeInput,stats:{wordCount:payload.word_count,indexedWordCount:payload.indexed_word_count,syllableCount:syllables.length}};
   }
   return {createImeCore};
 });
@@ -699,10 +709,10 @@
   const state = {
     committed: '', pendingText: '', pendingQuery: '', pendingSegments: [], pendingParts: [], composition: '', candidates: [], selected: 0,
     width: 900, height: 620, hits: [], pointerDown: null,
-    candidateMode: false, toast: '', toastUntil: 0, visibleCandidates: 20,
+    candidateMode: false, toast: '', toastUntil: 0, visibleCandidates: 20, candidatePanel: {y:190,h:132}, helpVisible: false,
     inputMode: savedSettings.inputMode==='en'?'en':'zh',
     outputScript: savedSettings.outputScript==='simp'?'simp':'trad',
-    shiftDown: false, shiftUsed: false, capsLock: false
+    shiftDown: false, shiftUsed: false, optionDown: false, capsLock: false
   };
 
   const KEY_ROWS = [
@@ -736,9 +746,17 @@
   function addHit(x,y,w,h,data){ state.hits.push({x,y,w,h,...data}); }
   function hitAt(x,y){ for(let i=state.hits.length-1;i>=0;i--){ const h=state.hits[i]; if(x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h) return h; } return null; }
   function pageStart(){ return Math.floor(state.selected/state.visibleCandidates)*state.visibleCandidates; }
+  function candidateColumns(){
+    const longest=Math.max(1,...state.candidates.slice(pageStart(),pageStart()+20).map(c=>Array.from(c.word||'').length));
+    if(state.width<560) return longest>=3?4:5;
+    return longest>=4?4:(longest>=3?5:10);
+  }
   function setToast(s){ state.toast=s;state.toastUntil=performance.now()+1400;render(); }
   function switchInputMode(){
-    // Preserve unfinished Chinese preedit/candidates while temporarily typing English.
+    if(state.inputMode==='zh' && state.composition){
+      if(!commitCandidate()) return false;
+    }
+    if(state.inputMode==='zh' && state.pendingParts.length) finalizePending();
     state.inputMode=toggleInputMode(state.inputMode);
     state.candidateMode=false;
     saveSettings();render();return true;
@@ -911,6 +929,8 @@
   function control(action){
     if(action==='toggleInput'){switchInputMode();return;}
     if(action==='toggleScript'){switchOutputScript();return;}
+    if(action==='toggleHelp'){state.helpVisible=!state.helpVisible;render();return;}
+    if(action==='clearLearning'){core.clearLearning();saveLearning();refreshCandidates();setToast('已清除所有學習');return;}
 
     if(state.inputMode==='en'){
       if(action==='backspace'){state.committed=deleteLastCodePoint(state.committed);render();}
@@ -1002,39 +1022,40 @@
       text('English mode · 直接輸入字母、數字與符號',28,159,21,'700','left','#1d2a44');
     }
 
-    const candidateY=190,candidateH=132;
-    roundRect(12,candidateY,w-24,candidateH,16,'#ffffff','#dce2ec');
-    const topLabels = w < 560 ? CAND_TOP_LABELS_MOBILE : CAND_TOP_LABELS_DESKTOP;
-    const bottomLabels = w < 560 ? CAND_BOTTOM_LABELS_MOBILE : CAND_BOTTOM_LABELS_DESKTOP;
-    state.visibleCandidates = topLabels.length + bottomLabels.length;
-    const start=pageStart();
-    const gap=6, candRowGap=8, innerW=w-40;
-    const rowBaseY = candidateY + 10;
-
-    function drawCandidateRow(labels, offset, y){
-      const count = labels.length;
-      const chipW = (innerW-gap*(count-1))/count;
-      const chipH = 46;
-      for(let i=0;i<count;i++){
-        const abs=start+offset+i, x=20+i*(chipW+gap), c=state.candidates[abs];
-        if(!c) continue;
-        const selected=abs===state.selected;
-        roundRect(x,y,chipW,chipH,12,selected?'#315fba':'#f3f6fb',selected?'#315fba':'#e0e6f0');
-        text(labels[i],x+9,y+12,10,'700','left',selected?'#cfe0ff':'#8793a8');
-        text(c.word,x+chipW/2,y+27,Math.min(19,Math.max(13,18-c.word.length*0.6)),'700','center',selected?'#ffffff':'#1d2a44');
+    const candidateY=190, railW=64, gap=6, candRowGap=8, chipH=46;
+    const columns=candidateColumns(), visible=20, rows=Math.ceil(visible/columns);
+    state.visibleCandidates=visible;
+    const candidateH=20+rows*chipH+(rows-1)*candRowGap;
+    state.candidatePanel={y:candidateY,h:candidateH};
+    roundRect(12,candidateY,w-24,candidateH,16,'#202020','#101010');
+    const railX=w-12-railW, innerX=20, innerW=railX-innerX-8;
+    const start=pageStart(), chipW=(innerW-gap*(columns-1))/columns;
+    if(state.inputMode==='zh'){
+      for(let slot=0;slot<visible;slot++){
+        const abs=start+slot,c=state.candidates[abs]; if(!c) continue;
+        const col=slot%columns,row=Math.floor(slot/columns),x=innerX+col*(chipW+gap),y=candidateY+10+row*(chipH+candRowGap),selected=abs===state.selected;
+        roundRect(x,y,chipW,chipH,11,selected?'#2765c7':'#303030',selected?'#3979dd':'#303030');
+        const label=slot<10?String((slot+1)%10):String.fromCharCode(65+slot-10);
+        text(label,x+8,y+12,10,'700','left',selected?'#cfe0ff':'#aab0bb');
+        text(c.word,x+chipW/2,y+27,Math.min(19,Math.max(13,18-Array.from(c.word).length*0.6)),'700','center','#ffffff');
+        if(state.optionDown && c.learned) text('刪除',x+chipW-7,y+11,10,'700','right',selected?'#ffffff':'#ff9a9a');
         addHit(x,y,chipW,chipH,{type:'candidate',index:abs});
       }
+      if(!state.candidates.length) text(state.composition?'沒有完整詞時會顯示單字；選完後再按 Enter 送出':(state.pendingParts.length?'已選字，按 Enter 確認並學習新詞':'候選會顯示在這裡'),innerX+innerW/2,candidateY+candidateH/2,14,'500','center','#b7b7b7');
+    } else text('英文輸入模式　｜　單按 Shift 切回中文',innerX+innerW/2,candidateY+candidateH/2,16,'700','center','#c3c3c3');
+    const railButtonH=18;
+    const railGap=3;
+    const rail=[['繁／簡','toggleScript'],['？','toggleHelp'],['清除','clearLearning']];
+    rail.forEach(([label,action],i)=>{const y=candidateY+10+i*(railButtonH+railGap);roundRect(railX,y,railW-8,railButtonH,5,'#2d2d2d','#454545');text(label,railX+(railW-8)/2,y+railButtonH/2,label==='？'?13:8,'700','center','#f4f4f4');addHit(railX,y,railW-8,railButtonH,{type:'action',action});});
+    if(state.helpVisible){
+      roundRect(innerX+12,candidateY+18,innerW-24,candidateH-36,12,'#151515','#6b6b6b');
+      text('逐音輸入法  v0.1.46',innerX+30,candidateY+42,16,'700','left','#ffffff');
+      text('Shift 切換中英；Shift+1–0 / A–J 選字',innerX+30,candidateY+68,12,'500','left','#d0d0d0');
+      text('Option：僅已學習候選顯示「刪除」，點選可移除',innerX+30,candidateY+90,12,'500','left','#d0d0d0');
+      text('點右側 ？ 關閉說明',innerX+30,candidateY+112,12,'500','left','#d0d0d0');
     }
 
-    if(state.inputMode==='zh'){
-      drawCandidateRow(topLabels, 0, rowBaseY);
-      drawCandidateRow(bottomLabels, topLabels.length, rowBaseY + 46 + candRowGap);
-      if(!state.candidates.length) text(state.composition?'沒有完整詞時會顯示單字；選完後再按 Enter 送出':(state.pendingParts.length?'已選字，按 Enter 確認並學習新詞':'候選會顯示在這裡'),w/2,candidateY+candidateH/2,14,'500','center','#919bad');
-    } else {
-      text('英文輸入模式　｜　單按 Shift 切回中文',w/2,candidateY+candidateH/2,16,'700','center','#71809a');
-    }
-
-    const kbTop=336, side=12, rowGap=7, keyGap=6;
+    const kbTop=candidateY+candidateH+14, side=12, rowGap=7, keyGap=6;
     let y=kbTop;
     const activeRows=state.inputMode==='zh'?KEY_ROWS:EN_KEY_ROWS;
     for(const row of activeRows){
@@ -1071,7 +1092,7 @@
 
   function resize(){
     const w=Math.max(340,Math.min(1180,window.innerWidth-24));
-    const h=w<560?700:760; const dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+    const h=w<560?900:980; const dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
     canvas.style.width=w+'px';canvas.style.height=h+'px';canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
     ctx.setTransform(dpr,0,0,dpr,0,0);state.width=w;state.height=h;render();
   }
@@ -1079,9 +1100,13 @@
   canvas.addEventListener('pointerdown',e=>{canvas.focus();const p=pointFromEvent(e);state.pointerDown={...p,time:performance.now()};canvas.setPointerCapture(e.pointerId);});
   canvas.addEventListener('pointerup',e=>{
     const p=pointFromEvent(e),d=state.pointerDown;state.pointerDown=null;
-    if(state.inputMode==='zh' && d && d.y>=190 && d.y<=322 && Math.abs(p.x-d.x)>50){pageCandidate(p.x<d.x?1:-1);return;}
+    if(state.inputMode==='zh' && d && d.y>=state.candidatePanel.y && d.y<=state.candidatePanel.y+state.candidatePanel.h && Math.abs(p.x-d.x)>50){pageCandidate(p.x<d.x?1:-1);return;}
     const hit=hitAt(p.x,p.y); if(!hit)return;
-    if(hit.type==='candidate')commitCandidate(hit.index);
+    if(hit.type==='candidate'){
+      if(state.optionDown && state.candidates[hit.index] && state.candidates[hit.index].learned){
+        if(core.removeCandidateLearning(state.candidates[hit.index])){ saveLearning(); refreshCandidates(); setToast('已刪除學習'); }
+      } else commitCandidate(hit.index);
+    }
     else if(hit.type==='symbol')handleSymbol(hit.value);
     else if(hit.type==='english')handleEnglishChar(hit.value);
     else if(hit.type==='action')control(hit.action);
@@ -1089,6 +1114,10 @@
   canvas.addEventListener('contextmenu',e=>e.preventDefault());
 
   window.addEventListener('keydown',e=>{
+    if(e.key==='Alt'){
+      if(!e.repeat){state.optionDown=true;render();}
+      return;
+    }
     if(e.key==='Shift'){
       if(!e.repeat){state.shiftDown=true;state.shiftUsed=false;}
       return;
@@ -1138,6 +1167,7 @@
   },{passive:false});
 
   window.addEventListener('keyup',e=>{
+    if(e.key==='Alt'){state.optionDown=false;render();return;}
     if(e.key!=='Shift') return;
     const toggle=shouldToggleShiftOnRelease(state.shiftDown,state.shiftUsed);
     state.shiftDown=false;state.shiftUsed=false;

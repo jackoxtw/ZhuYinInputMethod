@@ -148,7 +148,7 @@ size_t ZYRuntimeLookup(const char *query,ZYCandidate *out,size_t cap){
 
     for(size_t i=0;i<ZY_LEARN_PHRASE_CAP&&n<192;i++){
         const ZYLearnPhrase *p=&gLearning.p.phrases[i];if(!p->used)continue;uint8_t mc=0,matched=0;int exact=0;int ok=p->pron[0]?zy_engine_match_pron_key(query,p->pron,&mc,&matched,&exact):(strcmp(query,p->query)==0);
-        if(!ok)continue;ZYCandidate c={0};c.id=0x80000000u|(uint32_t)i;c.user_phrase=1;c.match_class=mc?mc:5;c.matched_chars=matched;c.dictionary_exact=exact?1:0;c.preference_rank=exact?1:0;c.score=7600000+(int32_t)zy_learning_phrase_frequency_bonus(p)+(int32_t)zy_learning_phrase_recency_bonus(&gLearning,p)+(exact?1200000:0);strlcpy(c.word,p->word,sizeof(c.word));tmp[n++]=c;
+        if(!ok)continue;ZYCandidate c={0};c.id=0x80000000u|(uint32_t)i;c.user_phrase=1;c.match_class=mc?mc:5;c.matched_chars=matched;c.dictionary_exact=exact?1:0;c.preference_rank=1;c.score=7600000+(int32_t)zy_learning_phrase_frequency_bonus(p)+(int32_t)zy_learning_phrase_recency_bonus(&gLearning,p)+(exact?1200000:0);strlcpy(c.word,p->word,sizeof(c.word));tmp[n++]=c;
     }
     qsort(tmp,n,sizeof(tmp[0]),zy_candidate_rank_compare);
     size_t m=0;for(size_t i=0;i<n&&m<cap;i++){BOOL dup=NO;for(size_t j=0;j<m;j++)if(strcmp(out[j].word,tmp[i].word)==0){dup=YES;break;}if(!dup)out[m++]=tmp[i];}

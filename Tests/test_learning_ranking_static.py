@@ -41,7 +41,7 @@ assert 'h.version!=1' in learning_c
 compact_runtime = runtime.replace(' ', '')
 assert 'learned_preference=zy_learning_query_preference_rank' in compact_runtime
 assert 'if(learned_preference>raw[i].preference_rank)raw[i].preference_rank=learned_preference' in compact_runtime
-assert 'c.preference_rank=exact?1:0' in compact_runtime
+assert 'c.preference_rank=1' in compact_runtime
 assert 'zy_learning_word_frequency_bonus' in runtime
 assert 'zy_learning_word_recency_bonus' in runtime
 assert 'zy_learning_phrase_frequency_bonus' in runtime
