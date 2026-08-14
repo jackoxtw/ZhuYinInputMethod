@@ -135,6 +135,25 @@ xcode-select --install
 
 ## 安裝
 
+## 建立可發佈 Release
+
+開發者要產生給一般使用者使用的已編譯版本時，請雙擊 `建立Release.command`，或在 Terminal 執行：
+
+```bash
+./建立Release.command
+```
+
+此指令會編譯、產生 `AppIcon.icns`、以 ad-hoc 簽章驗證 App，並更新：
+
+```text
+Release/逐音輸入法-v0.1.46/
+├── 逐音輸入法.app
+├── 安裝逐音輸入法.command
+└── 說明.txt
+```
+
+它**不會安裝或修改目前 Mac 的系統輸入法**。Release 內的安裝器才會在一般使用者的 Mac 上要求管理員密碼，將 App 安裝到 `/Library/Input Methods/`。
+
 ### 方法一：Finder 雙擊
 
 1. 解壓縮專案 ZIP。
