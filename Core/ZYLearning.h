@@ -53,6 +53,8 @@ void zy_learning_init(ZYLearning *l,uint64_t now_seconds);
 void zy_learning_reset(ZYLearning *l,uint64_t now_seconds);
 void zy_learning_begin_event(ZYLearning *l);
 void zy_learning_record_word(ZYLearning *l,uint32_t word_id,uint32_t query_hash);
+int zy_learning_remove_word(ZYLearning *l,uint32_t word_id,uint32_t query_hash);
+int zy_learning_remove_phrase_slot(ZYLearning *l,uint32_t slot);
 uint32_t zy_learning_word_count(const ZYLearning *l,uint32_t word_id);
 uint32_t zy_learning_word_frequency_bonus(const ZYLearning *l,uint32_t word_id);
 uint32_t zy_learning_word_recency_bonus(const ZYLearning *l,uint32_t word_id);

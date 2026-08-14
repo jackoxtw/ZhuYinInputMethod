@@ -167,7 +167,13 @@ for size in 16 32 128 256 512; do
   sips -z "$size" "$size" "$ICON_SOURCE" --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
   sips -z "$((size * 2))" "$((size * 2))" "$ICON_SOURCE" --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
 done
-iconutil -c icns "$ICONSET" -o "$ICON_ICNS"
+if ! iconutil -c icns "$ICONSET" -o "$ICON_ICNS"; then
+  # Some Xcode iconutil builds reject otherwise valid PNG iconsets.  Keep the
+  # previously verified Release icon as a deterministic fallback.
+  FALLBACK_ICON="$PWD/Release/逐音輸入法-v0.1.46/逐音輸入法.app/Contents/Resources/AppIcon.icns"
+  [[ -f "$FALLBACK_ICON" ]] || fail "無法建立 AppIcon.icns"
+  cp "$FALLBACK_ICON" "$ICON_ICNS"
+fi
 xattr -cr "$ICON_ICNS"
 cp "$ICON_ICNS" "$RES/AppIcon.icns"
 

@@ -55,7 +55,7 @@ static void flushLearningRun(char *word,size_t wordCap,char *query,size_t queryC
     NSUInteger _panelReleaseGeneration;
     BOOL _panelReleaseScheduled;
     NSRect _lastCaretRect;
-    BOOL _chinese,_simplified,_shiftDown,_shiftAlone;
+    BOOL _chinese,_simplified,_shiftDown,_shiftAlone,_optionDown;
     ZYSpecialCandidateMode _specialMode;
 }
 
@@ -195,7 +195,8 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
         NSArray<NSString*> *page=[all subarrayWithRange:NSMakeRange(_pageStart,count)];
         [panel updateWords:page count:count selected:_selected-_pageStart chinese:_chinese simplified:_simplified modeLabel:ZYSpecialModeLabel(_specialMode)];
     }else{
-        [panel updateCandidates:_candidates+_pageStart count:count selected:_selected-_pageStart chinese:_chinese simplified:_simplified];
+        BOOL deletable[50]={0};for(NSUInteger i=0;i<count;i++)deletable[i]=ZYRuntimeCandidateHasLearning(_candidates[_pageStart+i].id);
+        [panel updateCandidates:_candidates+_pageStart deletable:deletable count:count selected:_selected-_pageStart chinese:_chinese simplified:_simplified];
     }
     [panel showNearRect:[self clientRect:client]];
 }
@@ -273,6 +274,8 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
 }
 
 - (void)toggleLanguage:(id)client {
+    if(_chinese&&_composition.length&&_candidateCount)[self chooseSelected:client];
+    if(_chinese&&_pieceCount)[self learnAndCommit:client];
     _chinese=!_chinese;_shiftAlone=NO;_specialMode=ZYSpecialCandidateNone;_candidateCount=0;
     if(_chinese){[self updateMarked:client];[self refreshCandidates:client];}
     else{[client setMarkedText:@"" selectionRange:NSMakeRange(0,0) replacementRange:NSMakeRange(NSNotFound,NSNotFound)];[self hideCandidatePanel];}
@@ -295,6 +298,11 @@ static BOOL ZYCompositionNeedsFirstTone(NSString *composition){
 static NSString *chinesePunctuation(unsigned short k,BOOL shift){if(!shift){if(k==33)return @"「";if(k==30)return @"」";return nil;}switch(k){case 43:return @"，";case 47:return @"。";case 44:return @"？";case 18:return @"！";case 41:return @"：";case 39:return @"；";case 42:return @"、";case 25:return @"（";case 29:return @"）";case 33:return @"「";case 30:return @"」";case 50:return @"『";case 24:return @"』";case 28:return @"…";case 27:return @"—";default:return nil;}}
 
 - (BOOL)handleEvent:(NSEvent *)event client:(id)client {
+    if(event.type==NSEventTypeFlagsChanged&&(event.keyCode==58||event.keyCode==61)){
+        BOOL down=(event.modifierFlags&NSEventModifierFlagOption)!=0;
+        if(_optionDown!=down){_optionDown=down;[_panel setDeleteMode:down];}
+        return YES;
+    }
     if(event.type==NSEventTypeFlagsChanged&&(event.keyCode==56||event.keyCode==60)){
         BOOL down=(event.modifierFlags&NSEventModifierFlagShift)!=0;
         if(down&&!_shiftDown){_shiftDown=YES;_shiftAlone=YES;return YES;}
@@ -319,6 +327,8 @@ static NSString *chinesePunctuation(unsigned short k,BOOL shift){if(!shift){if(k
     if(shift&&isASCIIEnglishLetter(event.characters)){
         BOOL hadCandidates=_candidateCount!=0;
         if(_specialMode!=ZYSpecialCandidateNone)[self closeSpecialCandidates:client];
+        if(_composition.length&&_candidateCount)[self chooseSelected:client];
+        if(_pieceCount)[self learnAndCommit:client];
         NSString *latin=event.characters;
         if(!hadCandidates){
             NSString *base=[latin lowercaseString];
@@ -370,6 +380,12 @@ static NSString *chinesePunctuation(unsigned short k,BOOL shift){if(!shift){if(k
 - (void)candidatePanelDidChooseIndex:(NSUInteger)index {
     id client=[self client];NSUInteger absolute=_pageStart+index;
     [self chooseCurrentAbsolute:absolute client:client];
+}
+- (void)candidatePanelDidDeleteIndex:(NSUInteger)index {
+    NSUInteger absolute=_pageStart+index;if(absolute>=_candidateCount)return;
+    ZYCandidate c=_candidates[absolute];
+    if(!ZYRuntimeRemoveCandidateLearning(c.id,_composition.UTF8String)){NSBeep();return;}
+    [self refreshCandidates:[self client]];
 }
 - (void)candidatePanelToggleLanguage {}
 - (void)candidatePanelToggleScript { [self toggleScript:[self client]]; }

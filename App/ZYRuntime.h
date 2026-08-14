@@ -12,6 +12,8 @@ void ZYRuntimeShutdown(void);
 size_t ZYRuntimeLookup(const char *query,ZYCandidate *out,size_t cap);
 void ZYRuntimeBeginLearningEvent(void);
 void ZYRuntimeLearnWord(uint32_t candidateID,const char *query);
+BOOL ZYRuntimeRemoveCandidateLearning(uint32_t candidateID,const char *query);
+BOOL ZYRuntimeCandidateHasLearning(uint32_t candidateID);
 void ZYRuntimeLearnPhrase(const char *word,const char *query,const char *pron);
 int ZYRuntimeCandidatePron(uint32_t candidateID,char *out,size_t cap);
 int ZYRuntimeCandidateWord(uint32_t candidateID,char *out,size_t cap);

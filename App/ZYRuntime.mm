@@ -89,8 +89,7 @@ size_t ZYRuntimeLookup(const char *query,ZYCandidate *out,size_t cap){
         // current query (possibly through initial abbreviations) gets a soft
         // recall preference. Exact same-query preference remains rank 2.
         if(raw[i].preference_rank<1 && learned_count>0 &&
-           (raw[i].dictionary_exact || raw[i].final_syllable_partial) &&
-           raw[i].matched_chars>1)
+           (raw[i].dictionary_exact || raw[i].final_syllable_partial))
             raw[i].preference_rank=1;
         raw[i].score+=(int32_t)(zy_learning_word_frequency_bonus(&gLearning,raw[i].id)+
                                 zy_learning_word_recency_bonus(&gLearning,raw[i].id)+
@@ -159,6 +158,8 @@ size_t ZYRuntimeLookup(const char *query,ZYCandidate *out,size_t cap){
 
 void ZYRuntimeBeginLearningEvent(void){if(gReady)zy_learning_begin_event(&gLearning);}
 void ZYRuntimeLearnWord(uint32_t cid,const char *query){if(!gReady||cid>=gEngine.dict.h->word_count)return;zy_learning_record_word(&gLearning,cid,ZYRuntimeQueryHash(query));ZYRuntimeMaybeFlush();}
+BOOL ZYRuntimeRemoveCandidateLearning(uint32_t cid,const char *query){if(!gReady)return NO;BOOL ok=NO;if((cid&0x80000000u)&&cid!=UINT32_MAX)ok=zy_learning_remove_phrase_slot(&gLearning,cid&0x7fffffffu);else if(cid<gEngine.dict.h->word_count)ok=zy_learning_remove_word(&gLearning,cid,ZYRuntimeQueryHash(query));if(ok)ZYRuntimeMaybeFlush();return ok;}
+BOOL ZYRuntimeCandidateHasLearning(uint32_t cid){if(!gReady)return NO;if((cid&0x80000000u)&&cid!=UINT32_MAX){uint32_t i=cid&0x7fffffffu;return i<ZY_LEARN_PHRASE_CAP&&gLearning.p.phrases[i].used;}return cid<gEngine.dict.h->word_count&&zy_learning_word_count(&gLearning,cid)>0;}
 void ZYRuntimeLearnPhrase(const char *word,const char *query,const char *pron){if(!gReady)return;zy_learning_record_phrase(&gLearning,word,query,pron);ZYRuntimeMaybeFlush();}
 int ZYRuntimeCandidatePron(uint32_t cid,char *out,size_t cap){if(!gReady||!out||!cap)return-1;if((cid&0x80000000u)&&cid!=UINT32_MAX){uint32_t i=cid&0x7fffffffu;if(i>=ZY_LEARN_PHRASE_CAP||!gLearning.p.phrases[i].used)return-1;strlcpy(out,gLearning.p.phrases[i].pron,cap);return out[0]?0:-1;}return zy_engine_pronunciation_key(&gEngine,cid,out,cap);}
 int ZYRuntimeCandidateWord(uint32_t cid,char *out,size_t cap){

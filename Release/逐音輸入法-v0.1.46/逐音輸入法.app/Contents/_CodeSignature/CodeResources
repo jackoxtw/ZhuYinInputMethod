@@ -8,13 +8,33 @@
 		<data>
 		LLz+uH3WpHHFjMk6FRrIxbvrJug=
 		</data>
+		<key>Resources/Licenses/LICENSE_OpenCC_Apache-2.0.txt</key>
+		<data>
+		IgdkTqt5JjoNXNQrfZHa5cyYOSw=
+		</data>
+		<key>Resources/Licenses/LICENSE_jieba_MIT.txt</key>
+		<data>
+		JxP+9M9QgC1WLmrMI+6Jkw8pA+Y=
+		</data>
+		<key>Resources/Licenses/LICENSE_libchewing-data_LGPL-2.1.txt</key>
+		<data>
+		cU9EoEt4B/QgfmRdV6pzJA5+XWk=
+		</data>
+		<key>Resources/Licenses/NOTICE_OpenCC_tw2s.txt</key>
+		<data>
+		stf6ebZnjLjvvr8xc2Lw0+WJSKA=
+		</data>
+		<key>Resources/Licenses/NOTICE_libchewing-data.txt</key>
+		<data>
+		8gmCm4F8rckZ1LF30dOco9P+MPg=
+		</data>
 		<key>Resources/dictionary.bin</key>
 		<data>
-		EXghGXQG36RBXlOj3NYMu+DOlYY=
+		yJTvjfrUaZjXYLHKL2ea9KVH4mI=
 		</data>
 		<key>Resources/t2s.bin</key>
 		<data>
-		5YUxObsdvOdWe2AE5Bq2jHKwDLg=
+		gK21vb9akCkD5V425gYtd8fxBkY=
 		</data>
 		<key>Resources/zh-Hant.lproj/InfoPlist.strings</key>
 		<dict>
@@ -44,18 +64,53 @@
 			GZr2fkZI2FxgmBss0EhvDKt6qqaQ4gX+hvuD1oWI7NA=
 			</data>
 		</dict>
+		<key>Resources/Licenses/LICENSE_OpenCC_Apache-2.0.txt</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			tTTkZZSVWO7CWXsE9QkrXhYSNqaN+/0E1UdZKsOWQwg=
+			</data>
+		</dict>
+		<key>Resources/Licenses/LICENSE_jieba_MIT.txt</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			GLoJhIOfhYU7Kfra+ZL326j9DKD76uNN4rhzUiLcejc=
+			</data>
+		</dict>
+		<key>Resources/Licenses/LICENSE_libchewing-data_LGPL-2.1.txt</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			IOUP56rj5WN46/BBfZ3pBPVaDmHk3zFTM+YypNNVXZU=
+			</data>
+		</dict>
+		<key>Resources/Licenses/NOTICE_OpenCC_tw2s.txt</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			5h4kQomt47aTc3AvOgoXCsN+BWOZ+4eoaeCSSPSecYQ=
+			</data>
+		</dict>
+		<key>Resources/Licenses/NOTICE_libchewing-data.txt</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			PNe8yid14k2kChIIvy/TULnhu6+25LW5bgVVe6oTbVo=
+			</data>
+		</dict>
 		<key>Resources/dictionary.bin</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			W5RbwYpvcXoYdPljDxpe0m6EZbcTuPGXc906jL7UZys=
+			Zao3xYTSVbls+eVV/Y2OP9QbaloMqQfaDeCj6y9ylq4=
 			</data>
 		</dict>
 		<key>Resources/t2s.bin</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			FMuOA+DYii1mbdzW+QkeCu2NyIT4KcOHf70X1ZdoJvI=
+			lTQM7OTit6RoN4TBGNJpcIugE84FV3IBJdV8tiLQBSg=
 			</data>
 		</dict>
 		<key>Resources/zh-Hant.lproj/InfoPlist.strings</key>

@@ -50,6 +50,13 @@ void zy_learning_record_word(ZYLearning *l,uint32_t id,uint32_t query_hash){
     }
     l->dirty_mutations++;
 }
+int zy_learning_remove_word(ZYLearning *l,uint32_t id,uint32_t query_hash){
+    if(!l)return 0;int removed=0;
+    for(size_t i=0;i<ZY_LEARN_WORD_CAP;i++)if(l->p.words[i].used&&l->p.words[i].id==id){memset(&l->p.words[i],0,sizeof(l->p.words[i]));removed=1;}
+    for(size_t i=0;i<ZY_LEARN_QUERY_CAP;i++)if(l->p.queries[i].used&&l->p.queries[i].id==id&&(!query_hash||l->p.queries[i].hash==query_hash)){memset(&l->p.queries[i],0,sizeof(l->p.queries[i]));removed=1;}
+    if(removed)l->dirty_mutations++;return removed;
+}
+int zy_learning_remove_phrase_slot(ZYLearning *l,uint32_t slot){if(!l||slot>=ZY_LEARN_PHRASE_CAP||!l->p.phrases[slot].used)return 0;memset(&l->p.phrases[slot],0,sizeof(l->p.phrases[slot]));l->dirty_mutations++;return 1;}
 uint32_t zy_learning_word_count(const ZYLearning *l,uint32_t id){if(!l)return 0;for(size_t i=0;i<ZY_LEARN_WORD_CAP;i++)if(l->p.words[i].used&&l->p.words[i].id==id)return l->p.words[i].count;return 0;}
 uint32_t zy_learning_word_frequency_bonus(const ZYLearning *l,uint32_t id){
     return capped_count(zy_learning_word_count(l,id),ZY_LEARN_WORD_FREQ_CAP)*ZY_LEARN_WORD_FREQ_STEP;

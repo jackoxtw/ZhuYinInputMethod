@@ -65,15 +65,14 @@
     [self drawShortcut:@"↑ ↓ ← →" detail:@"移動候選" y:192];
     [self drawShortcut:@"PgUp / PgDn" detail:@"切換候選頁" y:222];
     [self drawShortcut:@"Shift 1–0 / A–J" detail:@"有候選：快速選候選" y:252];
-    [self drawShortcut:@"Shift + A–Z" detail:@"無候選：Caps Lock 關小寫／開大寫" y:282];
-    [self drawShortcut:@"F9" detail:@"切換繁體／簡體輸出" y:312];
-    [self drawShortcut:@"`  /  '" detail:@"Emoji ／ 中文標點" y:342];
-    [self drawShortcut:@"Esc" detail:@"返回、關閉面板或取消組字" y:372];
-
-    NSDictionary *footer=@{NSFontAttributeName:[NSFont systemFontOfSize:11.5],NSForegroundColorAttributeName:[NSColor colorWithWhite:.63 alpha:1]};
-    [@"候選會依最近使用與明確選字習慣自動學習。" drawAtPoint:NSMakePoint(24,421) withAttributes:footer];
+    [self drawShortcut:@"Shift + A–Z" detail:@"先送出中文，再輸入英文" y:282];
+    [self drawShortcut:@"Option + 點選" detail:@"已學習候選顯示「刪除」後點選移除" y:312];
+    [self drawShortcut:@"F9" detail:@"切換繁體／簡體輸出" y:342];
+    [self drawShortcut:@"`  /  '" detail:@"Emoji ／ 中文標點" y:372];
 
     NSRect bottom=self.helpBottomCloseRect;
+    NSDictionary *versionAttrs=@{NSFontAttributeName:[NSFont monospacedSystemFontOfSize:11 weight:NSFontWeightMedium],NSForegroundColorAttributeName:[NSColor colorWithWhite:.55 alpha:1]};
+    [@"v0.1.46" drawAtPoint:NSMakePoint(24,NSMidY(bottom)-6) withAttributes:versionAttrs];
     [[NSColor colorWithWhite:.25 alpha:1] setFill];
     [[NSBezierPath bezierPathWithRoundedRect:bottom xRadius:8 yRadius:8] fill];
     NSDictionary *buttonAttrs=@{NSFontAttributeName:[NSFont systemFontOfSize:13 weight:NSFontWeightSemibold],NSForegroundColorAttributeName:NSColor.whiteColor};
@@ -161,6 +160,7 @@ typedef NS_ENUM(NSUInteger, ZYClearLearningViewState){
 
 @interface ZYCandidatePanel ()
 - (void)candidateViewDidChooseIndex:(NSUInteger)index;
+- (void)candidateViewDidDeleteIndex:(NSUInteger)index;
 - (void)candidateViewToggleScript;
 - (void)candidateViewToggleHelp;
 - (void)candidateViewRequestClearLearning;
@@ -176,7 +176,9 @@ typedef NS_ENUM(NSUInteger, ZYClearLearningViewState){
 @property(nonatomic) NSUInteger count,selected,rows,columns;
 @property(nonatomic) CGFloat rowHeight;
 @property(nonatomic) BOOL chinese,simplified;
+@property(nonatomic) BOOL deleteMode;
 @property(nonatomic,strong) NSArray<NSString*> *words;
+@property(nonatomic,strong) NSArray<NSNumber*> *deletable;
 @property(nonatomic,copy) NSString *modeLabel;
 - (void)prepareCandidateTextLayout;
 @end
@@ -321,6 +323,9 @@ static NSDictionary *ZYClearLearningLabelAttributes(void){
             NSString *lab=shortcuts[i];
             [lab drawAtPoint:NSMakePoint(NSMinX(r)+5,NSMinY(r)+3) withAttributes:shortcutLabelAttrs];
         }
+        if(self.deleteMode&&i<self.deletable.count&&self.deletable[i].boolValue){
+            [@"刪除" drawAtPoint:NSMakePoint(NSMaxX(r)-24,NSMinY(r)+3) withAttributes:ZYClearLearningLabelAttributes()];
+        }
 
         NSString *w=self.words[i];
         NSRect textRect=NSInsetRect(r,self.columns>=10?4:8,self.columns>=10?4:6);
@@ -394,7 +399,7 @@ static NSDictionary *ZYClearLearningLabelAttributes(void){
     CGFloat cellW=720.0/self.columns;
     if(p.x<6||p.x>=726||p.y<6||p.y>=6+self.rowHeight*self.rows)return;
     NSUInteger row=(NSUInteger)((p.y-6)/self.rowHeight),col=(NSUInteger)((p.x-6)/cellW),idx=row*self.columns+col;
-    if(row<self.rows&&col<self.columns&&idx<self.count)[self.panel candidateViewDidChooseIndex:idx];
+    if(row<self.rows&&col<self.columns&&idx<self.count){if(self.deleteMode&&idx<self.deletable.count&&self.deletable[idx].boolValue)[self.panel candidateViewDidDeleteIndex:idx];else [self.panel candidateViewDidChooseIndex:idx];}
 }
 @end
 
@@ -415,9 +420,11 @@ static NSDictionary *ZYClearLearningLabelAttributes(void){
     return self;
 }
 - (NSUInteger)columns{return _cv.columns?:10;}
+- (void)setDeleteMode:(BOOL)enabled { if(_cv.deleteMode==enabled)return;_cv.deleteMode=enabled;[_cv setNeedsDisplay:YES]; }
 - (void)candidateViewDidChooseIndex:(NSUInteger)index {
     [self.candidateDelegate candidatePanelDidChooseIndex:index];
 }
+- (void)candidateViewDidDeleteIndex:(NSUInteger)index { [self.candidateDelegate candidatePanelDidDeleteIndex:index]; }
 - (void)candidateViewToggleScript {
     [self.candidateDelegate candidatePanelToggleScript];
 }
@@ -449,16 +456,17 @@ static NSDictionary *ZYClearLearningLabelAttributes(void){
     _cv.rows=rows;[self resizeForRows:rows];[_cv prepareCandidateTextLayout];[_cv setNeedsDisplay:YES];
 }
 
-- (void)updateCandidates:(const ZYCandidate*)items count:(NSUInteger)count selected:(NSUInteger)selected chinese:(BOOL)chinese simplified:(BOOL)simplified{
-    NSMutableArray<NSString*> *a=[NSMutableArray arrayWithCapacity:MIN(count,20)];
+- (void)updateCandidates:(const ZYCandidate*)items deletable:(const BOOL *)deletable count:(NSUInteger)count selected:(NSUInteger)selected chinese:(BOOL)chinese simplified:(BOOL)simplified{
+    NSMutableArray<NSString*> *a=[NSMutableArray arrayWithCapacity:MIN(count,20)];NSMutableArray<NSNumber*> *flags=[NSMutableArray arrayWithCapacity:MIN(count,20)];
     NSUInteger maxChars=0;
     for(NSUInteger i=0;i<count&&i<20;i++){
         NSString *s=[NSString stringWithUTF8String:items[i].word]?:@"";
         [a addObject:s];
+        [flags addObject:@(deletable&&deletable[i])];
         maxChars=MAX(maxChars,s.length);
     }
     NSUInteger columns=maxChars<=2?10:(maxChars<=5?5:4);
-    _cv.chinese=chinese;_cv.simplified=simplified;_cv.words=a;_cv.count=a.count;_cv.selected=selected;_cv.modeLabel=@"";
+    _cv.chinese=chinese;_cv.simplified=simplified;_cv.words=a;_cv.deletable=flags;_cv.count=a.count;_cv.selected=selected;_cv.modeLabel=@"";
     _cv.columns=columns;
     _cv.rowHeight=columns==10?38:(columns==5?48:58);
     NSUInteger rows=MAX((NSUInteger)1,(a.count+columns-1)/columns);
