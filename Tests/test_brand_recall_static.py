@@ -2,8 +2,8 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-engine = (ROOT / "Core" / "ZYEngine.c").read_text()
-runtime = (ROOT / "App" / "ZYRuntime.mm").read_text()
+engine = (ROOT / "Shared" / "Core" / "ZYEngine.c").read_text()
+runtime = (ROOT / "Platforms" / "macOS" / "App" / "ZYRuntime.mm").read_text()
 
 assert "m.initials>0&&m.matched>=5&&m.remaining==0" in engine
 assert "codepoints(c.word,strlen(c.word))>=5" in engine

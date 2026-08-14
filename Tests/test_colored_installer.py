@@ -1,7 +1,7 @@
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-build = (root / 'build_and_install.command').read_text('utf-8')
+build = (root / 'Platforms/macOS/scripts/build_and_install.command').read_text('utf-8')
 
 # ANSI colors must be optional and disabled for non-interactive output.
 assert '[[ -t 1' in build, 'installer must only emit colors to an interactive terminal'

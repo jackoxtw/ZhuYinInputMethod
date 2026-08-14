@@ -1,8 +1,8 @@
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-command = (root / '建立Release.command').read_text(encoding='utf-8')
-build = (root / 'build_and_install.command').read_text(encoding='utf-8')
+command = (root / 'Platforms/macOS/scripts/建立Release.command').read_text(encoding='utf-8')
+build = (root / 'Platforms/macOS/scripts/build_and_install.command').read_text(encoding='utf-8')
 
 assert command.startswith('#!/bin/bash\n')
 assert 'set -euo pipefail' in command

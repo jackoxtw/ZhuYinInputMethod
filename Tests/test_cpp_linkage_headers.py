@@ -1,11 +1,11 @@
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
 headers=[
-    root/'Core/ZYDictionary.h',
-    root/'Core/ZYEngine.h',
-    root/'Core/ZYLearning.h',
-    root/'Core/ZYConversion.h',
-    root/'App/ZYRuntime.h',
+    root/'Shared/Core/ZYDictionary.h',
+    root/'Shared/Core/ZYEngine.h',
+    root/'Shared/Core/ZYLearning.h',
+    root/'Shared/Core/ZYConversion.h',
+    root/'Platforms/macOS/App/ZYRuntime.h',
 ]
 for p in headers:
     s=p.read_text(encoding='utf-8')

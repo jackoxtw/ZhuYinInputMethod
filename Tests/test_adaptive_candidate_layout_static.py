@@ -1,9 +1,9 @@
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-panel = (root / 'App' / 'ZYCandidatePanel.mm').read_text(encoding='utf-8')
-header = (root / 'App' / 'ZYCandidatePanel.h').read_text(encoding='utf-8')
-controller = (root / 'App' / 'ZYInputController.mm').read_text(encoding='utf-8')
+panel = (root / 'Platforms' / 'macOS' / 'App' / 'ZYCandidatePanel.mm').read_text(encoding='utf-8')
+header = (root / 'Platforms' / 'macOS' / 'App' / 'ZYCandidatePanel.h').read_text(encoding='utf-8')
+controller = (root / 'Platforms' / 'macOS' / 'App' / 'ZYInputController.mm').read_text(encoding='utf-8')
 
 # The panel must expose its visual column count so keyboard navigation follows the grid.
 assert '@property(nonatomic,readonly) NSUInteger columns;' in header

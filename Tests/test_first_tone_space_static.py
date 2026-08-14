@@ -1,9 +1,9 @@
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-controller = (root / "App" / "ZYInputController.mm").read_text()
-runtime = (root / "App" / "ZYRuntime.mm").read_text()
-help_panel = (root / "App" / "ZYCandidatePanel.mm").read_text()
+controller = (root / "Platforms" / "macOS" / "App" / "ZYInputController.mm").read_text()
+runtime = (root / "Platforms" / "macOS" / "App" / "ZYRuntime.mm").read_text()
+help_panel = (root / "Platforms" / "macOS" / "App" / "ZYCandidatePanel.mm").read_text()
 
 # Space must be contextual: add explicit first tone to an untoned trailing
 # Bopomofo syllable, but choose the current candidate after a tone exists.

@@ -1,8 +1,8 @@
 from pathlib import Path
 root = Path(__file__).resolve().parents[1]
-h = (root/'App'/'ZYCandidatePanel.h').read_text(encoding='utf-8')
-p = (root/'App'/'ZYCandidatePanel.mm').read_text(encoding='utf-8')
-c = (root/'App'/'ZYInputController.mm').read_text(encoding='utf-8')
+h = (root/'Platforms'/'macOS'/'App'/'ZYCandidatePanel.h').read_text(encoding='utf-8')
+p = (root/'Platforms'/'macOS'/'App'/'ZYCandidatePanel.mm').read_text(encoding='utf-8')
+c = (root/'Platforms'/'macOS'/'App'/'ZYInputController.mm').read_text(encoding='utf-8')
 
 # Panel must not retain the controller. The controller already owns the panel.
 assert '@property(nonatomic,weak) id<ZYCandidatePanelDelegate> candidateDelegate;' in h

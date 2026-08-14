@@ -1,9 +1,9 @@
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-controller = (root / 'App/ZYInputController.mm').read_text('utf-8')
-ax = (root / 'App/ZYAccessibilityCaret.mm').read_text('utf-8')
-panel = (root / 'App/ZYCandidatePanel.mm').read_text('utf-8')
+controller = (root / 'Platforms/macOS/App/ZYInputController.mm').read_text('utf-8')
+ax = (root / 'Platforms/macOS/App/ZYAccessibilityCaret.mm').read_text('utf-8')
+panel = (root / 'Platforms/macOS/App/ZYCandidatePanel.mm').read_text('utf-8')
 
 
 # InputMethodKit has a dedicated candidate-window positioning API.  Its index is

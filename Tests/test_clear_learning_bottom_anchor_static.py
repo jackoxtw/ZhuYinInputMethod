@@ -1,6 +1,6 @@
 from pathlib import Path
 
-src = Path("App/ZYCandidatePanel.mm").read_text(encoding="utf-8")
+src = Path("Platforms/macOS/App/ZYCandidatePanel.mm").read_text(encoding="utf-8")
 
 required = [
     "- (NSRect)clearLearningRect",

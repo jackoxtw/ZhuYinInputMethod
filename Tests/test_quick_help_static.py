@@ -1,8 +1,8 @@
 from pathlib import Path
 root = Path(__file__).resolve().parents[1]
-h = (root/'App'/'ZYCandidatePanel.h').read_text()
-p = (root/'App'/'ZYCandidatePanel.mm').read_text()
-c = (root/'App'/'ZYInputController.mm').read_text()
+h = (root/'Platforms'/'macOS'/'App'/'ZYCandidatePanel.h').read_text()
+p = (root/'Platforms'/'macOS'/'App'/'ZYCandidatePanel.mm').read_text()
+c = (root/'Platforms'/'macOS'/'App'/'ZYInputController.mm').read_text()
 
 assert 'candidatePanelToggleHelp' in h
 assert 'quickHelpVisible' in h

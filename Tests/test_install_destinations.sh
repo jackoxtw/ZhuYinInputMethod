@@ -2,10 +2,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-INSTALLER="$ROOT/build_and_install.command"
-UNINSTALLER="$ROOT/uninstall.command"
+INSTALLER="$ROOT/Platforms/macOS/scripts/build_and_install.command"
+UNINSTALLER="$ROOT/Platforms/macOS/scripts/uninstall.command"
 README="$ROOT/README.md"
-PLIST="$ROOT/App/Info.plist"
+PLIST="$ROOT/Platforms/macOS/App/Info.plist"
 SYSTEM_APP='/Library/Input Methods/逐音輸入法.app'
 USER_APP='$HOME/Library/Input Methods/逐音輸入法.app'
 

@@ -1,9 +1,9 @@
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-controller = (root / 'App/ZYInputController.mm').read_text('utf-8')
-header = (root / 'App/ZYCandidatePanel.h').read_text('utf-8')
-panel = (root / 'App/ZYCandidatePanel.mm').read_text('utf-8')
+controller = (root / 'Platforms/macOS/App/ZYInputController.mm').read_text('utf-8')
+header = (root / 'Platforms/macOS/App/ZYCandidatePanel.h').read_text('utf-8')
+panel = (root / 'Platforms/macOS/App/ZYCandidatePanel.mm').read_text('utf-8')
 
 # F9 must reuse the existing persisted simplified/traditional toggle path.
 assert 'case kVK_F9:' in controller, 'F9 must be handled by Carbon key code'

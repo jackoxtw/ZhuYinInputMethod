@@ -1,8 +1,8 @@
 from pathlib import Path
 
-panel = Path('App/ZYCandidatePanel.mm').read_text()
-controller = Path('App/ZYInputController.mm').read_text()
-runtime = Path('App/ZYRuntime.mm').read_text()
+panel = Path('Platforms/macOS/App/ZYCandidatePanel.mm').read_text()
+controller = Path('Platforms/macOS/App/ZYInputController.mm').read_text()
+runtime = Path('Platforms/macOS/App/ZYRuntime.mm').read_text()
 
 # Candidate drawing should use layout prepared during candidate updates instead
 # of repeatedly measuring strings inside drawRect.

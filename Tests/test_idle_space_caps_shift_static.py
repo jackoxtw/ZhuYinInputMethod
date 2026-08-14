@@ -1,7 +1,7 @@
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-controller = (root / 'App' / 'ZYInputController.mm').read_text('utf-8')
+controller = (root / 'Platforms' / 'macOS' / 'App' / 'ZYInputController.mm').read_text('utf-8')
 
 # Candidate shortcuts must remain ahead of Latin Shift handling.
 shortcut = 'if(_candidateCount&&shift){NSInteger slot=shiftSlot(event.keyCode);'

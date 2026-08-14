@@ -36,9 +36,9 @@ assert legacy.is_file(), 'legacy Canvas HTML missing from Docs/Reference'
 
 assert (ROOT / 'Docs' / 'Development' / 'plans').is_dir()
 assert (ROOT / 'Docs' / 'Development' / 'specs').is_dir()
-assert not (ROOT / 'docs').exists(), 'old lowercase docs directory should be removed'
+assert 'docs' not in {path.name for path in ROOT.iterdir()}, 'old lowercase docs directory should be removed'
 
-for path in ['App', 'Core', 'Resources', 'Tools', 'Tests', 'Licenses']:
+for path in ['Platforms/macOS/App', 'Shared/Core', 'Shared/Resources', 'Shared/Tools', 'Tests', 'Licenses']:
     assert (ROOT / path).is_dir(), f'build-critical directory missing: {path}'
 
 runner = (ROOT / 'run_core_tests.sh').read_text(encoding='utf-8')

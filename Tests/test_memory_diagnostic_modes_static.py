@@ -1,6 +1,6 @@
 from pathlib import Path
 
-src = Path('App/ZYInputController.mm').read_text(encoding='utf-8')
+src = Path('Platforms/macOS/App/ZYInputController.mm').read_text(encoding='utf-8')
 
 # A release build must not synchronize user defaults or keep alternate
 # diagnostic branches in its per-key refresh path.  Those branches were useful

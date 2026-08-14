@@ -1,13 +1,13 @@
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-engine_h = (root / 'Core/ZYEngine.h').read_text(encoding='utf-8')
-engine_c = (root / 'Core/ZYEngine.c').read_text(encoding='utf-8')
-learning_h = (root / 'Core/ZYLearning.h').read_text(encoding='utf-8')
-learning_c = (root / 'Core/ZYLearning.c').read_text(encoding='utf-8')
-runtime_h = (root / 'App/ZYRuntime.h').read_text(encoding='utf-8')
-runtime = (root / 'App/ZYRuntime.mm').read_text(encoding='utf-8')
-controller = (root / 'App/ZYInputController.mm').read_text(encoding='utf-8')
+engine_h = (root / 'Shared/Core/ZYEngine.h').read_text(encoding='utf-8')
+engine_c = (root / 'Shared/Core/ZYEngine.c').read_text(encoding='utf-8')
+learning_h = (root / 'Shared/Core/ZYLearning.h').read_text(encoding='utf-8')
+learning_c = (root / 'Shared/Core/ZYLearning.c').read_text(encoding='utf-8')
+runtime_h = (root / 'Platforms/macOS/App/ZYRuntime.h').read_text(encoding='utf-8')
+runtime = (root / 'Platforms/macOS/App/ZYRuntime.mm').read_text(encoding='utf-8')
+controller = (root / 'Platforms/macOS/App/ZYInputController.mm').read_text(encoding='utf-8')
 
 # Candidate preference is a rank, not a permanent boolean bonus.
 assert 'preference_rank' in engine_h

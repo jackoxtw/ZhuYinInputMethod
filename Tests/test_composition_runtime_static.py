@@ -1,6 +1,6 @@
 from pathlib import Path
 
-s = (Path(__file__).resolve().parents[1] / 'App' / 'ZYRuntime.mm').read_text()
+s = (Path(__file__).resolve().parents[1] / 'Platforms' / 'macOS' / 'App' / 'ZYRuntime.mm').read_text()
 assert '#include "ZYComposer.h"' in s
 assert 'zy_composer_lookup_with_workspace(&gEngine,query' in s
 assert 'segment_count' in s

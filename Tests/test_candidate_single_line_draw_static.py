@@ -1,6 +1,6 @@
 from pathlib import Path
 
-panel = (Path(__file__).resolve().parents[1] / 'App' / 'ZYCandidatePanel.mm').read_text(encoding='utf-8')
+panel = (Path(__file__).resolve().parents[1] / 'Platforms' / 'macOS' / 'App' / 'ZYCandidatePanel.mm').read_text(encoding='utf-8')
 candidate = panel.split('@implementation ZYCandidateView', 1)[1]
 draw = candidate.split('- (void)drawRect:', 1)[1].split('- (void)mouseDown:', 1)[0]
 

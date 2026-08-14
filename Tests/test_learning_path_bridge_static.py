@@ -1,6 +1,6 @@
 from pathlib import Path
 
-src = Path('App/ZYRuntime.mm').read_text(encoding='utf-8')
+src = Path('Platforms/macOS/App/ZYRuntime.mm').read_text(encoding='utf-8')
 
 bad = 'initWithFileSystemRepresentation:gLearningBase length:strlen(gLearningBase)'
 assert bad not in src, 'NSString does not implement initWithFileSystemRepresentation:length:'

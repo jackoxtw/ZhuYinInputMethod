@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "Tools"))
+sys.path.insert(0, str(ROOT / "Shared" / "Tools"))
 from zyt2s_format import convert_text, read_binary
 
 
@@ -43,7 +43,7 @@ def run_small_behavior_test() -> None:
         write(tw_rev, """# synthetic\n著作\t著作\n著名\t著名\n""")
 
         subprocess.run(
-            [sys.executable, str(ROOT / "Tools" / "build_tw2s_opencc.py"),
+            [sys.executable, str(ROOT / "Shared" / "Tools" / "build_tw2s_opencc.py"),
              str(ts_chars), str(ts_phrases), str(tw_variants), str(tw_rev), str(out)],
             check=True,
         )
@@ -87,7 +87,7 @@ def run_require_full_shape_test() -> None:
         write(tw_rev, "\n".join(rev_lines) + "\n")
 
         subprocess.run(
-            [sys.executable, str(ROOT / "Tools" / "build_tw2s_opencc.py"),
+            [sys.executable, str(ROOT / "Shared" / "Tools" / "build_tw2s_opencc.py"),
              str(ts_chars), str(ts_phrases), str(tw_variants), str(tw_rev), str(out),
              "--require-full"],
             check=True,

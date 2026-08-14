@@ -2,7 +2,7 @@ from pathlib import Path
 import struct
 
 ROOT = Path(__file__).resolve().parents[1]
-BIN = ROOT / 'Resources/dictionary.bin'
+BIN = ROOT / 'Shared/Resources/dictionary.bin'
 FMT = '<8sIIIIII' + 'Q' * 15
 
 

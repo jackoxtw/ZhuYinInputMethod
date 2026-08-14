@@ -9,8 +9,8 @@ ROOT = Path(__file__).parents[1]
 
 class CurrentVersionStaticTests(unittest.TestCase):
     def test_marketing_and_build_versions_are_0_1_47_build_50(self):
-        plist = (ROOT / "App/Info.plist").read_text()
-        panel = (ROOT / "App/ZYCandidatePanel.mm").read_text()
+        plist = (ROOT / "Platforms/macOS/App/Info.plist").read_text()
+        panel = (ROOT / "Platforms/macOS/App/ZYCandidatePanel.mm").read_text()
         readme = (ROOT / "README.md").read_text()
         changelog = (ROOT / "CHANGELOG.md").read_text()
         html = (ROOT / "Docs/Reference/台灣注音輸入法_Canvas_單檔版(20260812-065531).html").read_text()

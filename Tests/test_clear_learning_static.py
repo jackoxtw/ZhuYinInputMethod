@@ -1,10 +1,10 @@
 from pathlib import Path
 root = Path(__file__).resolve().parents[1]
-h = (root/'App'/'ZYCandidatePanel.h').read_text()
-p = (root/'App'/'ZYCandidatePanel.mm').read_text()
-c = (root/'App'/'ZYInputController.mm').read_text()
-rh = (root/'App'/'ZYRuntime.h').read_text()
-r = (root/'App'/'ZYRuntime.mm').read_text()
+h = (root/'Platforms'/'macOS'/'App'/'ZYCandidatePanel.h').read_text()
+p = (root/'Platforms'/'macOS'/'App'/'ZYCandidatePanel.mm').read_text()
+c = (root/'Platforms'/'macOS'/'App'/'ZYInputController.mm').read_text()
+rh = (root/'Platforms'/'macOS'/'App'/'ZYRuntime.h').read_text()
+r = (root/'Platforms'/'macOS'/'App'/'ZYRuntime.mm').read_text()
 
 assert 'candidatePanelRequestClearLearning' in h
 assert '@"清除學習"' in p

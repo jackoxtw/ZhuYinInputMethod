@@ -1,5 +1,5 @@
 from pathlib import Path
-p = Path('App/ZYCandidatePanel.mm').read_text(encoding='utf-8')
+p = Path('Platforms/macOS/App/ZYCandidatePanel.mm').read_text(encoding='utf-8')
 start = p.find('@implementation ZYCandidateView')
 end = p.find('@end', start)
 view = p[start:end]

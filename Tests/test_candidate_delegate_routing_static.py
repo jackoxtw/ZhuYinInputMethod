@@ -1,7 +1,7 @@
 from pathlib import Path
-h = Path('App/ZYCandidatePanel.h').read_text(encoding='utf-8')
-p = Path('App/ZYCandidatePanel.mm').read_text(encoding='utf-8')
-c = Path('App/ZYInputController.mm').read_text(encoding='utf-8')
+h = Path('Platforms/macOS/App/ZYCandidatePanel.h').read_text(encoding='utf-8')
+p = Path('Platforms/macOS/App/ZYCandidatePanel.mm').read_text(encoding='utf-8')
+c = Path('Platforms/macOS/App/ZYInputController.mm').read_text(encoding='utf-8')
 assert '@property(nonatomic,weak) id<ZYCandidatePanelDelegate> candidateDelegate;' in h, 'controller owns panel, so panel delegate must stay weak to avoid a retain cycle'
 assert '@property(nonatomic,weak) ZYCandidatePanel *panel;' in p, 'view must point back only to its owning panel'
 assert '_cv.panel=self;' in p, 'panel must install itself as view action owner'

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-panel = (Path(__file__).resolve().parents[1] / 'App' / 'ZYCandidatePanel.mm').read_text(encoding='utf-8')
+panel = (Path(__file__).resolve().parents[1] / 'Platforms' / 'macOS' / 'App' / 'ZYCandidatePanel.mm').read_text(encoding='utf-8')
 start = panel.index('static NSDictionary *ZYCandidateTextAttributes')
 end = panel.index('static NSDictionary *ZYModeLabelAttributes', start)
 cache = panel[start:end]

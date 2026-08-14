@@ -1,6 +1,6 @@
 from pathlib import Path
 
-s = (Path(__file__).resolve().parents[1] / 'App' / 'ZYInputController.mm').read_text()
+s = (Path(__file__).resolve().parents[1] / 'Platforms' / 'macOS' / 'App' / 'ZYInputController.mm').read_text()
 assert 'if(c.segment_count)' in s
 assert 'c.segment_ids[j]' in s
 assert 'c.segment_consume_codepoints[j]' in s

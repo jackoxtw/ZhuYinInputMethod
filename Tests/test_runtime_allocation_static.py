@@ -1,8 +1,8 @@
 from pathlib import Path
 root = Path(__file__).resolve().parents[1]
-s = (root / 'App' / 'ZYRuntime.mm').read_text()
-h = (root / 'Core' / 'ZYComposer.h').read_text()
-c = (root / 'Core' / 'ZYComposer.c').read_text()
+s = (root / 'Platforms' / 'macOS' / 'App' / 'ZYRuntime.mm').read_text()
+h = (root / 'Shared' / 'Core' / 'ZYComposer.h').read_text()
+c = (root / 'Shared' / 'Core' / 'ZYComposer.c').read_text()
 
 assert 'substringWithRange:' not in s, 'Runtime lookup must not allocate NSString substrings per segment'
 assert 'ZYRuntimeQueryHashCodepointRange' in s

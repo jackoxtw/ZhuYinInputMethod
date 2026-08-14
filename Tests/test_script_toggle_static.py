@@ -1,9 +1,9 @@
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-header = (root / 'App/ZYCandidatePanel.h').read_text('utf-8')
-panel = (root / 'App/ZYCandidatePanel.mm').read_text('utf-8')
-controller = (root / 'App/ZYInputController.mm').read_text('utf-8')
+header = (root / 'Platforms/macOS/App/ZYCandidatePanel.h').read_text('utf-8')
+panel = (root / 'Platforms/macOS/App/ZYCandidatePanel.mm').read_text('utf-8')
+controller = (root / 'Platforms/macOS/App/ZYInputController.mm').read_text('utf-8')
 
 # Candidate UI must expose the same output-script toggle concept as the web version.
 assert '- (void)candidatePanelToggleScript;' in header, 'candidate panel delegate must expose script toggle callback'

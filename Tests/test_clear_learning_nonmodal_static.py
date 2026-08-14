@@ -1,8 +1,8 @@
 from pathlib import Path
 root = Path(__file__).resolve().parents[1]
-h = (root/'App'/'ZYCandidatePanel.h').read_text(encoding='utf-8')
-p = (root/'App'/'ZYCandidatePanel.mm').read_text(encoding='utf-8')
-c = (root/'App'/'ZYInputController.mm').read_text(encoding='utf-8')
+h = (root/'Platforms'/'macOS'/'App'/'ZYCandidatePanel.h').read_text(encoding='utf-8')
+p = (root/'Platforms'/'macOS'/'App'/'ZYCandidatePanel.mm').read_text(encoding='utf-8')
+c = (root/'Platforms'/'macOS'/'App'/'ZYInputController.mm').read_text(encoding='utf-8')
 
 # Background input methods must never enter a hidden modal NSAlert for this action.
 clear = c[c.find('- (void)candidatePanelRequestClearLearning'):c.find('- (NSMenu *)menu')]

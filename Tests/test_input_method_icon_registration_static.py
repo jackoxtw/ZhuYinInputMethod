@@ -1,7 +1,7 @@
 from pathlib import Path
 
-info = (Path(__file__).resolve().parents[1] / 'App' / 'Info.plist').read_text(encoding='utf-8')
-resources = Path(__file__).resolve().parents[1] / 'Resources'
+info = (Path(__file__).resolve().parents[1] / 'Platforms' / 'macOS' / 'App' / 'Info.plist').read_text(encoding='utf-8')
+resources = Path(__file__).resolve().parents[1] / 'Shared' / 'Resources'
 top_level = info.split('<key>ComponentInputModeDict</key>', 1)[0]
 
 assert '<key>CFBundleIdentifier</key><string>tw.zhuyin.inputmethod.v3</string>' in top_level

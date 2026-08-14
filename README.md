@@ -275,7 +275,7 @@ cd zhu-yin-input-method-native
 
 ## 台灣注音與多音字詞庫
 
-ZIP 內建的 `Resources/dictionary.bin` 已包含核心台灣讀音修正，目前為：
+ZIP 內建的 `Shared/Resources/dictionary.bin` 已包含核心台灣讀音修正，目前為：
 
 - **76,724** 個詞條。
 - 約 **1.76 MiB**。
@@ -286,7 +286,7 @@ ZIP 內建的 `Resources/dictionary.bin` 已包含核心台灣讀音修正，目
 - 修正台灣常用讀音。
 - 補入單字多音讀法。
 - 保留原有詞庫排序與學習 ID 相容性。
-- 在 Taiwan reading overlay 後重新套用 `Resources/brand_words.csv`；因此完整線上詞庫與離線 fallback 都會保留「逐音輸入法」品牌詞。
+- 在 Taiwan reading overlay 後重新套用 `Shared/Resources/brand_words.csv`；因此完整線上詞庫與離線 fallback 都會保留「逐音輸入法」品牌詞。
 
 若完整資料下載或驗證失敗，安裝器會顯示黃色警告並使用 ZIP 內建的核心修正版，不會因網路問題中止整個安裝。
 
@@ -337,9 +337,17 @@ IMK-lineHeight x=512.0 y=420.0 w=0.0 h=24.0
 
 ```text
 zhu-yin-input-method-native/
-├── App/                       # InputMethodKit / AppKit / 候選窗 / 游標定位
-├── Core/                      # C99 查詞、學習、繁簡轉換核心
-├── Resources/                 # 二進位詞庫、OpenCC fallback、語系資源
+├── Shared/
+│   ├── Core/                  # C99 查詞、學習、繁簡轉換核心（macOS / Windows 共用）
+│   ├── Resources/             # 二進位詞庫、OpenCC fallback、語系資源（共用）
+│   ├── Tools/                 # 詞庫建立、修復與 OpenCC tw2s builder（共用）
+│   └── Tests/                 # 兩端共用的 C99 核心回歸測試
+├── Platforms/
+│   ├── macOS/
+│   │   ├── App/               # InputMethodKit / AppKit / 候選窗 / 游標定位
+│   │   ├── Packaging/         # macOS Release 安裝器內容
+│   │   └── scripts/           # macOS 編譯、Release、解除安裝指令
+│   └── Windows/               # Windows TSF 實作與安裝器（規劃中）
 │   ├── dictionary.bin
 │   ├── brand_words.csv
 │   ├── t2s.bin
@@ -347,7 +355,6 @@ zhu-yin-input-method-native/
 │   ├── opencc_tw2s_core/
 │   ├── zh-Hant.lproj/
 │   └── zh_TW.lproj/
-├── Tools/                     # 詞庫建立、修復與 OpenCC tw2s builder
 ├── Tests/                     # C / Python / shell 回歸測試
 ├── Licenses/                  # 第三方授權與 NOTICE
 ├── Docs/
@@ -506,7 +513,7 @@ cat /tmp/zhu-yin-caret.log
 
 清除範圍包含 `learning_A.dat`、`learning_B.dat`、最近使用、常用詞頻、Query Preferred、自訂學習詞組與已學詞縮寫召回依據。清除成功後立即生效，不必重新啟動輸入法；同一個確認面板會顯示「學習資料已清除」後自動收起，不再建立第二個 modal 視窗。
 
-**不受影響**：內建字典、完整台灣詞庫、`Resources/brand_words.csv`（包含「逐音輸入法」品牌詞）、OpenCC、繁／簡設定、Emoji、中文標點與其他 UI 設定。
+**不受影響**：內建字典、完整台灣詞庫、`Shared/Resources/brand_words.csv`（包含「逐音輸入法」品牌詞）、OpenCC、繁／簡設定、Emoji、中文標點與其他 UI 設定。
 
 
 ### 候選面板滑鼠互動

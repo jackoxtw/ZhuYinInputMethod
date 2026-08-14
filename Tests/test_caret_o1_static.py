@@ -1,7 +1,7 @@
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-controller = (root / 'App/ZYInputController.mm').read_text('utf-8')
+controller = (root / 'Platforms/macOS/App/ZYInputController.mm').read_text('utf-8')
 
 start = controller.index('- (NSRect)clientRect:(id)client')
 end = controller.index('\n- (void)updateMarked:', start)

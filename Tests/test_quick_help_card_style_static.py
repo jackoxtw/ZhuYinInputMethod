@@ -1,6 +1,6 @@
 from pathlib import Path
 root = Path(__file__).resolve().parents[1]
-p = (root/'App'/'ZYCandidatePanel.mm').read_text(encoding='utf-8')
+p = (root/'Platforms'/'macOS'/'App'/'ZYCandidatePanel.mm').read_text(encoding='utf-8')
 
 assert '@interface ZYHelpView : NSView' in p
 assert '- (BOOL)acceptsFirstMouse:(NSEvent *)event' in p
@@ -19,5 +19,5 @@ assert '[self.owner closeQuickHelp]' in p
 assert 'NSTextField *label=[NSTextField labelWithString:' not in p
 print('test_quick_help_card_style_static: OK')
 assert 'Shift + A–Z' in p
-assert '無候選：Caps Lock 關小寫／開大寫' in p
+assert '先送出中文，再輸入英文' in p
 assert 'initWithContentRect:NSMakeRect(0,0,440,460)' in p

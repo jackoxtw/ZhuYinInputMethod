@@ -1,5 +1,5 @@
 from pathlib import Path
-p = Path('App/ZYCandidatePanel.mm').read_text(encoding='utf-8')
+p = Path('Platforms/macOS/App/ZYCandidatePanel.mm').read_text(encoding='utf-8')
 view_start = p.find('@implementation ZYCandidateView')
 draw_start = p.find('- (void)drawRect:', view_start)
 view_head = p[view_start:draw_start]
