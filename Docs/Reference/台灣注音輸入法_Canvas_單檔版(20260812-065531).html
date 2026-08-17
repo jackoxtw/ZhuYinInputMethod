@@ -1145,6 +1145,15 @@
     if(e.shiftKey && /^Digit[1-9]$/.test(e.code) && state.candidates.length){e.preventDefault();commitSlot(Number(e.code.slice(-1))-1);return;}
     if(e.shiftKey && e.code==='Digit0' && state.candidates.length){e.preventDefault();commitSlot(9);return;}
     if(e.shiftKey && /^Key[A-J]$/.test(e.code) && state.candidates.length){e.preventDefault();commitSlot(10 + (e.code.charCodeAt(3)-65));return;}
+    if(e.shiftKey && /^[a-z]$/i.test(e.key)){
+      e.preventDefault();
+      state.composition='';
+      state.candidates=[];
+      state.selected=0;
+      state.candidateMode=false;
+      handleEnglishChar(e.key);
+      return;
+    }
     if(state.candidateMode && /^[1-9]$/.test(e.key) && state.candidates.length){e.preventDefault();commitSlot(Number(e.key)-1);return;}
 
     const zhPunct=keyboardPunctuation('zh',e.code,e.shiftKey,state.candidates.length>0);
