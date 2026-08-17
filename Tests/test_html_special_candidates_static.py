@@ -47,6 +47,16 @@ class HtmlSpecialCandidatesStaticTests(unittest.TestCase):
             "if(e.key==='ArrowLeft'){",
             after="const zhPunct=",
         )
+        cls.render_block = cls.slice_between(
+            cls.source,
+            "function render(){",
+            "function resize(){",
+        )
+        cls.pointer_block = cls.slice_between(
+            cls.source,
+            "canvas.addEventListener('pointerup',e=>{",
+            "canvas.addEventListener('contextmenu',e=>",
+        )
 
     @staticmethod
     def slice_between(source, start_marker, end_marker, after=None):
@@ -106,6 +116,20 @@ class HtmlSpecialCandidatesStaticTests(unittest.TestCase):
             "if(sym){e.preventDefault();closeSpecialCandidates();handleSymbol(sym);}",
             self.keydown_block,
         )
+
+    def test_canvas_renders_special_source_and_mouse_uses_special_selection(self):
+        self.assertIn("const candidates=activeCandidates();", self.render_block)
+        self.assertIn("const visible=candidatePageSize();", self.render_block)
+        self.assertIn("state.specialMode==='emoji'?'Emoji 候選':'中文標點候選'", self.render_block)
+        self.assertIn("else chooseSelectedCandidate(hit.index);", self.pointer_block)
+
+    def test_bottom_guide_is_permanent_and_documents_current_behavior(self):
+        self.assertIn('<section class="full-guide" aria-labelledby="full-guide-title">', self.source)
+        self.assertGreater(self.source.index('<section class="full-guide"'), self.source.index('<canvas id="imeCanvas"'))
+        for phrase in ['Shift 英文字母', '取消未確認注音', '反引號 `', "單引號 '", 'F9', 'Option', '僅保存在本機']:
+            self.assertIn(phrase, self.source)
+        self.assertIn("取消未確認注音", self.source)
+        self.assertNotIn("送出未確認中文", self.source)
 
     def test_runner_invokes_special_candidate_static_test(self):
         self.assertIn("python3 Tests/test_html_special_candidates_static.py", self.runner)

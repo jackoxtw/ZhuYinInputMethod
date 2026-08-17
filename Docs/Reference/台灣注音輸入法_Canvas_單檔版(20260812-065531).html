@@ -11,13 +11,40 @@
   .title h1{font-size:18px;margin:0}.title span{font-size:12px;color:#738097}
   canvas{display:block;outline:none;touch-action:none;border-radius:20px;box-shadow:0 10px 30px rgba(29,42,68,.10)}
   .note{width:min(1180px,calc(100vw - 24px));font-size:12px;line-height:1.55;color:#6f7b90;margin-top:10px}
-  @media(max-width:560px){body{padding:6px}.title,.note{width:calc(100vw - 12px)}.title span{display:none}canvas{border-radius:14px}}
+  .note a{color:#315fba}
+  .full-guide{width:min(1180px,calc(100vw - 24px));margin-top:16px;padding:20px 22px 18px;background:#f8fbff;border:1px solid #d6e2f3;border-radius:18px;box-shadow:0 6px 18px rgba(41,72,122,.08);color:#22324d}
+  .full-guide h2{margin:0 0 14px;font-size:20px;color:#1c2d4b}
+  .full-guide h3{margin:16px 0 8px;font-size:15px;color:#315fba}
+  .full-guide ul{margin:0;padding-left:20px;line-height:1.65}
+  .full-guide kbd{display:inline-block;padding:0 6px;border-radius:6px;border:1px solid #c8d6eb;background:#ffffff;color:#274a83;font:600 12px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif}
+  @media(max-width:560px){body{padding:6px}.title,.note,.full-guide{width:calc(100vw - 12px)}.title span{display:none}canvas{border-radius:14px}.full-guide{padding:18px 16px}}
 </style>
 </head>
 <body>
 <div class="title"><h1>台灣注音輸入法 · Canvas Prototype</h1><span>低記憶體詞庫｜聲母縮寫｜自適應候選｜中英切換｜繁入簡出｜中文標點｜離線單檔</span></div>
 <canvas id="imeCanvas" tabindex="0" role="application" aria-label="Canvas 注音輸入法"></canvas>
-<div class="note">單按 <b>Shift</b> 會先送出未確認中文，再切換中／英輸入；Shift 若搭配候選快捷鍵或標點則不切換。候選會依詞長自適應排列，可用 <b>← → ↑ ↓</b> 選字、<b>PageUp/PageDown</b> 翻頁、<b>Home/End</b> 跳首尾，亦可用 <b>Shift+1～0</b> 與 <b>Shift+A～J</b> 快速選字。按住 <b>Option</b> 時，僅已學習候選顯示「刪除」，點選即可移除。中文模式 <b>Shift+, / Shift+. / Shift+/</b> 分別輸出「，」「。」「？」；英文模式輸出半形。中文候選、姓名與自訂詞學習永遠維持繁體；候選面板右側可切換繁／簡，簡體只在 Enter 最終送出時轉換。</div>
+<div class="note">單按 <b>Shift</b> 只切換中／英輸入；按 <b>Shift</b> 加英文字母時，會先送出已確認組字並<b>取消未確認注音</b>，再輸入英文。Shift 若搭配候選快捷鍵、<b>` Emoji</b>、<b>' 標點</b> 或其他標點則不切換。候選可用 <b>← → ↑ ↓</b>、<b>PageUp/PageDown</b>、<b>Home/End</b> 與 <b>Shift+1～0 / Shift+A～J</b> 操作；更多細節請見下方 <a href="#full-guide-title">完整使用說明</a>。</div>
+<section class="full-guide" aria-labelledby="full-guide-title">
+  <h2 id="full-guide-title">完整使用說明</h2>
+  <h3>注音與候選</h3>
+  <ul>
+    <li>直接輸入注音符號組字；候選依詞長自適應排列，可用滑鼠、<kbd>Enter</kbd>、<kbd>Space</kbd> 或 <kbd>Shift+1～0</kbd> / <kbd>Shift+A～J</kbd> 選字。</li>
+    <li>候選面板支援 <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd>、<kbd>PageUp</kbd> / <kbd>PageDown</kbd> 翻頁，以及 <kbd>Home</kbd> / <kbd>End</kbd> 跳到首尾。</li>
+    <li><kbd>Enter</kbd> 會確認目前組好的中文，<kbd>Space</kbd> 可輸入一聲或在已確認組字後加入空白；滑鼠點選候選時會保留 composition 與 pending 狀態，不會清掉已輸入內容。</li>
+  </ul>
+  <h3>中英切換與快捷鍵</h3>
+  <ul>
+    <li>單按 <kbd>Shift</kbd> 只切換中英模式；按 <kbd>Shift</kbd> 搭配候選快捷鍵時，仍優先選字，不會切換模式。</li>
+    <li><b>Shift 英文字母</b> 會先送出已確認的中文片段、<b>取消未確認注音</b>，再輸入對應英文；<kbd>Caps Lock</kbd> 會影響英文字母大小寫。</li>
+    <li>此 HTML 試用版用候選面板右側「繁／簡」按鈕模擬 <kbd>F9</kbd> 的繁簡切換；最終送出時才會依設定轉成簡體，其餘候選與學習內容維持繁體。</li>
+  </ul>
+  <h3>Emoji、標點與個人學習</h3>
+  <ul>
+    <li>中文模式下可按 <b>反引號 `</b> 開啟 Emoji 候選、按 <b>單引號 '</b> 開啟中文標點候選；<kbd>Esc</kbd> 會關閉目前面板並回到先前的注音候選。</li>
+    <li><kbd>Option</kbd> 只會讓已學習候選顯示「刪除」，點選後才會移除該筆學習；特殊候選不會出現刪除操作。</li>
+    <li>個人候選學習、自訂詞與設定僅保存在本機瀏覽器，不會上傳；這個試用版以 localStorage 保存資料。</li>
+  </ul>
+</section>
 <script>
 (function(root, factory){
   const api = factory();
@@ -842,9 +869,9 @@
     state.candidateMode=false;
     render();
   }
-  function chooseSelectedCandidate(){
-    if(!state.specialMode) return commitCandidate(state.selected);
-    const item=specialCandidates()[state.selected];
+  function chooseSelectedCandidate(absIndex=state.selected){
+    if(!state.specialMode) return commitCandidate(absIndex);
+    const item=specialCandidates()[absIndex];
     if(!item) return false;
     state.specialMode=null;state.selected=0;stagePunctuation(item);refreshCandidates();return true;
   }
@@ -1053,7 +1080,10 @@
       const pendingPreview=pendingSurface(state.pendingParts);
       const preedit=pendingPreview+(pendingPreview&&state.composition?'　':'')+(state.composition||'');
       text(preedit || '開始輸入注音…',28,159,25,'700','left',preedit?'#1d2a44':'#95a0b4');
-      if(activeCandidates()[0]) text('→ '+(state.specialMode?activeCandidates()[0]:activeCandidates()[0].word),w-28,159,20,'700','right','#315fba');
+      if(state.specialMode){
+        const panelLabel=state.specialMode==='emoji'?'Emoji 候選':'中文標點候選';
+        text(panelLabel+'｜Esc 關閉',w-28,159,17,'700','right','#315fba');
+      } else if(activeCandidates()[0]) text('→ '+activeCandidates()[0].word,w-28,159,20,'700','right','#315fba');
     } else {
       text('英文',28,139,11,'700','left','#58709c');
       text('English mode · 直接輸入字母、數字與符號',28,159,21,'700','left','#1d2a44');
@@ -1061,7 +1091,9 @@
 
     const candidates=activeCandidates();
     const candidateY=190, railW=64, gap=6, candRowGap=8, chipH=46;
-    const columns=candidateColumns(), visible=candidatePageSize(), rows=Math.ceil(visible/columns);
+    const visible=candidatePageSize();
+    const columns=state.specialMode?10:candidateColumns();
+    const rows=Math.ceil(visible/columns);
     state.visibleCandidates=visible;
     const candidateH=20+rows*chipH+(rows-1)*candRowGap;
     state.candidatePanel={y:candidateY,h:candidateH};
@@ -1069,14 +1101,17 @@
     const railX=w-12-railW, innerX=20, innerW=railX-innerX-8;
     const start=pageStart(), chipW=(innerW-gap*(columns-1))/columns;
     if(state.inputMode==='zh'){
+      if(state.specialMode){
+        text(state.specialMode==='emoji'?'Emoji 候選':'中文標點候選',innerX,candidateY-13,12,'700','left','#5e6f8d');
+      }
       for(let slot=0;slot<visible;slot++){
         const abs=start+slot,c=candidates[abs]; if(!c) continue;
         const col=slot%columns,row=Math.floor(slot/columns),x=innerX+col*(chipW+gap),y=candidateY+10+row*(chipH+candRowGap),selected=abs===state.selected;
         roundRect(x,y,chipW,chipH,11,selected?'#2765c7':'#303030',selected?'#3979dd':'#303030');
-        const label=slot<10?String((slot+1)%10):String.fromCharCode(65+slot-10);
-        text(label,x+8,y+12,10,'700','left',selected?'#cfe0ff':'#aab0bb');
-        const value=state.specialMode?String(c):c.word;
-        text(value,x+chipW/2,y+27,Math.min(19,Math.max(13,18-Array.from(value).length*0.6)),'700','center','#ffffff');
+        const label=slot<10?String((slot+1)%10):(slot<20?String.fromCharCode(65+slot-10):'');
+        if(label) text(label,x+8,y+12,10,'700','left',selected?'#cfe0ff':'#aab0bb');
+        const word=state.specialMode ? c : c.word;
+        text(word,x+chipW/2,y+27,Math.min(19,Math.max(13,18-Array.from(word).length*0.6)),'700','center','#ffffff');
         if(!state.specialMode && state.optionDown && c.learned) text('刪除',x+chipW-7,y+11,10,'700','right',selected?'#ffffff':'#ff9a9a');
         addHit(x,y,chipW,chipH,{type:'candidate',index:abs});
       }
@@ -1089,7 +1124,7 @@
     if(state.helpVisible){
       roundRect(innerX+12,candidateY+18,innerW-24,candidateH-36,12,'#151515','#6b6b6b');
       text('逐音輸入法  v0.1.48',innerX+30,candidateY+42,16,'700','left','#ffffff');
-      text('Shift 切換中英；Shift+1–0 / A–J 選字',innerX+30,candidateY+68,12,'500','left','#d0d0d0');
+      text("Shift 切換中英；` Emoji；' 標點；Shift+1–0 / A–J 選字",innerX+30,candidateY+68,12,'500','left','#d0d0d0');
       text('Option：僅已學習候選顯示「刪除」，點選可移除',innerX+30,candidateY+90,12,'500','left','#d0d0d0');
       text('點右側 ？ 關閉說明',innerX+30,candidateY+112,12,'500','left','#d0d0d0');
     }
@@ -1124,14 +1159,15 @@
     text(`詞庫 ${core.stats.indexedWordCount.toLocaleString()} / ${core.stats.wordCount.toLocaleString()}　音節 ${core.stats.syllableCount.toLocaleString()}　個人候選學習`,16,footerY,11,'500','left','#7c879b');
     let mode;
     if(state.inputMode==='en') mode=`英文模式${state.capsLock?'｜Caps':''}｜單按 Shift 切中文｜輸出 ${state.outputScript==='simp'?'簡':'繁'}`;
-    else mode=state.candidateMode?'候選：←→↑↓｜PgUp/PgDn｜Shift+1–0/A–J':`中文注音｜Shift 切英文｜標點 Shift+, . /｜輸出 ${state.outputScript==='simp'?'簡':'繁'}`;
+    else if(state.specialMode) mode=`${state.specialMode==='emoji'?'Emoji 候選':'中文標點候選'}｜Esc 關閉｜\` Emoji｜' 標點｜輸出 ${state.outputScript==='simp'?'簡':'繁'}`;
+    else mode=state.candidateMode?"候選：←→↑↓｜PgUp/PgDn｜Shift+1–0/A–J｜` Emoji｜' 標點":`中文注音｜Shift 切英文｜\` Emoji｜' 標點｜輸出 ${state.outputScript==='simp'?'簡':'繁'}`;
     text(mode,w-16,footerY,11,state.candidateMode?'700':'500','right',state.candidateMode?'#b45309':'#7c879b');
     if(state.toast && performance.now()<state.toastUntil){roundRect(w/2-70,18,140,34,17,'#172033');text(state.toast,w/2,35,13,'700','center','#fff');requestAnimationFrame(render);}
   }
 
   function resize(){
     const w=Math.max(340,Math.min(1180,window.innerWidth-24));
-    const h=w<560?900:980; const dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+    const h=w<560?1060:1145; const dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
     canvas.style.width=w+'px';canvas.style.height=h+'px';canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
     ctx.setTransform(dpr,0,0,dpr,0,0);state.width=w;state.height=h;render();
   }
@@ -1139,12 +1175,13 @@
   canvas.addEventListener('pointerdown',e=>{canvas.focus();const p=pointFromEvent(e);state.pointerDown={...p,time:performance.now()};canvas.setPointerCapture(e.pointerId);});
   canvas.addEventListener('pointerup',e=>{
     const p=pointFromEvent(e),d=state.pointerDown;state.pointerDown=null;
-    if(state.inputMode==='zh' && d && d.y>=state.candidatePanel.y && d.y<=state.candidatePanel.y+state.candidatePanel.h && Math.abs(p.x-d.x)>50){pageCandidate(p.x<d.x?1:-1);return;}
+    if(activeCandidates().length && state.inputMode==='zh' && d && d.y>=state.candidatePanel.y && d.y<=state.candidatePanel.y+state.candidatePanel.h && Math.abs(p.x-d.x)>50){pageCandidate(p.x<d.x?1:-1);return;}
     const hit=hitAt(p.x,p.y); if(!hit)return;
     if(hit.type==='candidate'){
+      state.selected=hit.index;
       if(!state.specialMode && state.optionDown && state.candidates[hit.index] && state.candidates[hit.index].learned){
         if(core.removeCandidateLearning(state.candidates[hit.index])){ saveLearning(); refreshCandidates(); setToast('已刪除學習'); }
-      } else { state.selected=hit.index; chooseSelectedCandidate(); }
+      } else chooseSelectedCandidate(hit.index);
     }
     else if(hit.type==='symbol')handleSymbol(hit.value);
     else if(hit.type==='english')handleEnglishChar(hit.value);
