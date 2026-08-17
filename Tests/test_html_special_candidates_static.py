@@ -75,14 +75,28 @@ class HtmlSpecialCandidatesStaticTests(unittest.TestCase):
         self.assertIn("state.specialMode=null;refreshCandidates();", self.source)
 
     def test_keys_open_toggle_and_select_special_candidates(self):
+        guarded_backquote = "if(!e.shiftKey && e.code==='Backquote'){e.preventDefault();toggleSpecialCandidates('emoji');return;}"
+        guarded_quote = "if(!e.shiftKey && e.code==='Quote'){e.preventDefault();toggleSpecialCandidates('punctuation');return;}"
+        zh_punct = "const zhPunct=keyboardPunctuation('zh',e.code,e.shiftKey,state.candidates.length>0);"
         self.assertIn(
+            guarded_backquote,
+            self.keydown_block,
+        )
+        self.assertIn(
+            guarded_quote,
+            self.keydown_block,
+        )
+        self.assertNotIn(
             "if(e.code==='Backquote'){e.preventDefault();toggleSpecialCandidates('emoji');return;}",
             self.keydown_block,
         )
-        self.assertIn(
+        self.assertNotIn(
             "if(e.code==='Quote'){e.preventDefault();toggleSpecialCandidates('punctuation');return;}",
             self.keydown_block,
         )
+        self.assertIn(zh_punct, self.keydown_block)
+        self.assertLess(self.keydown_block.index(guarded_backquote), self.keydown_block.index(zh_punct))
+        self.assertLess(self.keydown_block.index(guarded_quote), self.keydown_block.index(zh_punct))
         self.assertIn("if(state.specialMode){closeSpecialCandidates();return;}", self.escape_block)
         self.assertIn("if(state.specialMode)return chooseSelectedCandidate();", self.space_block)
         self.assertIn("if(state.specialMode)return chooseSelectedCandidate();", self.enter_block)

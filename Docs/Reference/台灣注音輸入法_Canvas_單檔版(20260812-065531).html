@@ -1196,8 +1196,8 @@
       return;
     }
     if(state.candidateMode && /^[1-9]$/.test(e.key) && activeCandidates().length){e.preventDefault();commitSlot(Number(e.key)-1);return;}
-    if(e.code==='Backquote'){e.preventDefault();toggleSpecialCandidates('emoji');return;}
-    if(e.code==='Quote'){e.preventDefault();toggleSpecialCandidates('punctuation');return;}
+    if(!e.shiftKey && e.code==='Backquote'){e.preventDefault();toggleSpecialCandidates('emoji');return;}
+    if(!e.shiftKey && e.code==='Quote'){e.preventDefault();toggleSpecialCandidates('punctuation');return;}
 
     const zhPunct=keyboardPunctuation('zh',e.code,e.shiftKey,state.candidates.length>0);
     if(zhPunct){e.preventDefault();stagePunctuation(zhPunct);return;}
