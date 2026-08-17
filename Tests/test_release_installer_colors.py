@@ -1,6 +1,6 @@
 from pathlib import Path
 
-installer = (Path(__file__).resolve().parents[1] / 'Release' / '逐音輸入法-v0.1.47' / '安裝逐音輸入法.command').read_text(encoding='utf-8')
+installer = (Path(__file__).resolve().parents[1] / 'Release' / '逐音輸入法-v0.1.48' / '安裝逐音輸入法.command').read_text(encoding='utf-8')
 
 for token in ['C_BLUE=', 'C_CYAN=', 'C_GREEN=', 'C_YELLOW=', 'C_RED=', 'C_RESET=',
               'step(){', 'info(){', 'success(){', 'warn(){', 'fail(){']:
