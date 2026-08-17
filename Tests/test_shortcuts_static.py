@@ -4,6 +4,9 @@ root = Path(__file__).resolve().parents[1]
 controller = (root / 'Platforms/macOS/App/ZYInputController.mm').read_text('utf-8')
 header = (root / 'Platforms/macOS/App/ZYCandidatePanel.h').read_text('utf-8')
 panel = (root / 'Platforms/macOS/App/ZYCandidatePanel.mm').read_text('utf-8')
+readme = (root / 'README.md').read_text(encoding='utf-8')
+
+assert '未確認注音會取消，不會送出候選' in readme
 
 # F9 must reuse the existing persisted simplified/traditional toggle path.
 assert 'case kVK_F9:' in controller, 'F9 must be handled by Carbon key code'
