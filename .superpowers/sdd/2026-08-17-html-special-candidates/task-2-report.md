@@ -111,3 +111,72 @@
 ### 本輪已知疑慮
 
 - 這一輪新增的是靜態回歸契約，能直接防住 reviewer 指出的四個具體邏輯回退；但 `chooseSelectedCandidate()` 的多段 composition 消耗仍是透過原有 `commitCandidate()` / `stagePunctuation()` 協作完成，沒有再額外引入新的 runtime harness。
+
+---
+
+## Final Fix Wave（2026-08-17）
+
+### 變更
+
+- 更新 `Docs/Reference/台灣注音輸入法_Canvas_單檔版(20260812-065531).html`
+  - virtual Canvas 注音鍵 `pointerup` 的 `symbol` 分支改為先 `closeSpecialCandidates()` 再 `handleSymbol(hit.value)`，確保從 Emoji / 標點面板點回注音鍵時會立即退出特殊模式並回到一般候選路徑。
+  - Shift 標點分支改為在 `stagePunctuation(zhPunct)` 前先 `closeSpecialCandidates()`，讓特殊面板開啟時的 Shift 標點流程和 native parity 一致。
+  - `chooseSelectedCandidate()` 在「composition 為空且沒有 pending parts」時，特殊 Emoji / 標點不再直接寫入 `committed`，而是最小幅度地改成 `appendPendingPunctuationPart(...)` 建立待確認 punctuation piece；按 Enter 後才真正送出。一般空白標點分支仍維持原本行為。
+  - 調整頁底 guide 文案，移除「Space 可直接選一般候選」的錯誤宣稱，改為精確描述目前行為：一般中文模式下，Space 只處理一聲／分音；特殊候選仍可用 Space 選取。
+  - `.full-guide` 新增 `box-sizing:border-box`，修正 390px 手機 viewport 下 content-box 加 padding 造成的水平溢位。
+- 更新 `Tests/test_html_special_candidates_static.py`
+  - 新增 virtual Canvas `symbol` 點擊必須先關閉 `specialMode` 的契約。
+  - 新增 Shift 標點路徑必須先關閉 `specialMode` 的契約。
+  - 新增特殊候選在空 composition / pending 時必須建立 pending punctuation、不可直接 committed 的契約。
+  - 新增 guide 文案與 `.full-guide` mobile overflow 修正的回歸檢查。
+
+### 特殊空狀態選取的最終行為
+
+- 當 `composition === ''` 且 `pendingParts.length === 0` 時，選取特殊 Emoji / 標點會走：
+  - `state.pendingParts = appendPendingPunctuationPart(state.pendingParts, item)`
+  - `refreshCandidates()`
+  - `return true`
+- 也就是特殊項目會先留在 pending punctuation，而不是直接進入 `state.committed`；之後需由 Enter（或既有送出流程）完成真正送出。
+
+### RED / GREEN 指令輸出摘要
+
+- RED
+  - `python3 Tests/test_html_special_candidates_static.py`
+  - 結果：`FAILED (failures=6)`
+  - 失敗點：
+    - virtual Canvas `symbol` 分支尚未先 `closeSpecialCandidates()`
+    - Shift 標點分支尚未先關閉特殊模式
+    - 特殊候選空狀態仍會直接 committed
+    - guide 仍錯誤宣稱一般 Space 可直接選候選
+    - `.full-guide` 尚未套用 `box-sizing:border-box`
+- GREEN
+  - `python3 Tests/test_html_special_candidates_static.py`
+  - 結果：`Ran 13 tests ... OK`
+- GREEN
+  - `python3 Tests/test_html_shift_english_static.py`
+  - 結果：`test_html_shift_english_static: OK`
+
+### 本輪完整驗證
+
+- `python3 Tests/test_html_special_candidates_static.py`
+  - `Ran 13 tests ... OK`
+- `python3 Tests/test_html_shift_english_static.py`
+  - `test_html_shift_english_static: OK`
+- `python3 Tests/test_html_native_parity_static.py`
+  - `Ran 4 tests ... OK`
+- `./run_core_tests.sh`
+  - 驗證 native C core、HTML static、OpenCC、quick-help、learning、跨平台靜態檢查與本輪特殊候選回歸測試
+  - 結尾摘要：`Candidate caret, Taiwan dictionary, OpenCC tw2s, composition quality, quick-help, and first-tone regression tests: OK`
+- `git --no-pager diff --check`
+  - exit 0
+
+### Canvas virtual key / Shift punctuation 驗證方式
+
+- 以 `Tests/test_html_special_candidates_static.py` 的靜態契約直接驗證：
+  - virtual Canvas 注音鍵分支必須包含 `closeSpecialCandidates();handleSymbol(hit.value);`
+  - Shift 標點分支必須包含 `closeSpecialCandidates();stagePunctuation(zhPunct);return;`
+- 以同檔回歸測試驗證空狀態特殊選取必須包含 `appendPendingPunctuationPart(...)`，並禁止 `state.committed+=item` 的直接送出回退。
+
+### 本輪已知疑慮
+
+- 本輪維持最小改動策略，空狀態特殊選取的 pending 行為是透過 `chooseSelectedCandidate()` 的特殊分支補齊，而不是重寫 `stagePunctuation()` 的一般空白標點語意；這樣能保留既有普通標點分支，但仍主要仰賴靜態契約而非額外 runtime harness 來防回退。

@@ -67,6 +67,11 @@ class HtmlSpecialCandidatesStaticTests(unittest.TestCase):
             "function moveCandidateGrid(direction){",
             "function pageCandidate(delta){",
         )
+        cls.stage_punctuation_block = cls.slice_between(
+            cls.source,
+            "function stagePunctuation(punct){",
+            "function refreshCandidates(){",
+        )
 
     @staticmethod
     def slice_between(source, start_marker, end_marker, after=None):
@@ -127,6 +132,22 @@ class HtmlSpecialCandidatesStaticTests(unittest.TestCase):
             self.keydown_block,
         )
 
+    def test_shift_punctuation_closes_special_candidates_before_staging(self):
+        self.assertIn(
+            "if(zhPunct){e.preventDefault();closeSpecialCandidates();stagePunctuation(zhPunct);return;}",
+            self.keydown_block,
+        )
+
+    def test_canvas_virtual_symbol_keys_close_special_candidates_before_handling_symbol(self):
+        self.assertIn(
+            "else if(hit.type==='symbol'){closeSpecialCandidates();handleSymbol(hit.value);}",
+            self.pointer_block,
+        )
+        self.assertNotIn(
+            "else if(hit.type==='symbol')handleSymbol(hit.value);",
+            self.pointer_block,
+        )
+
     def test_canvas_renders_special_source_and_mouse_uses_special_selection(self):
         self.assertIn("const candidates=activeCandidates();", self.render_block)
         self.assertIn("const visible=candidatePageSize();", self.render_block)
@@ -147,6 +168,10 @@ class HtmlSpecialCandidatesStaticTests(unittest.TestCase):
         self.assertIn("const previousMode=state.specialMode;", self.choose_selected_block)
         self.assertIn("let previousComposition='';", self.choose_selected_block)
         self.assertIn(
+            "if(!state.composition && !state.pendingParts.length){state.pendingParts=appendPendingPunctuationPart(state.pendingParts,item);refreshCandidates();return true;}",
+            self.choose_selected_block,
+        )
+        self.assertIn(
             "while(!staged && state.composition && state.composition!==previousComposition){",
             self.choose_selected_block,
         )
@@ -159,6 +184,10 @@ class HtmlSpecialCandidatesStaticTests(unittest.TestCase):
             self.choose_selected_block,
         )
 
+    def test_special_selection_empty_state_does_not_directly_commit_punctuation(self):
+        self.assertIn("state.pendingParts=appendPendingPunctuationPart(state.pendingParts,item);", self.choose_selected_block)
+        self.assertNotIn("state.committed+=item", self.choose_selected_block)
+
     def test_bottom_guide_is_permanent_and_documents_current_behavior(self):
         self.assertIn('<section class="full-guide" aria-labelledby="full-guide-title">', self.source)
         self.assertGreater(self.source.index('<section class="full-guide"'), self.source.index('<canvas id="imeCanvas"'))
@@ -166,10 +195,15 @@ class HtmlSpecialCandidatesStaticTests(unittest.TestCase):
             self.assertIn(phrase, self.source)
         self.assertIn("會先送出已確認 pending 片段，再清除未確認 composition／一般候選並切換", self.source)
         self.assertIn("同樣保留已確認、取消未確認並直接輸入英文", self.source)
+        self.assertIn("Space 在一般中文模式下只處理一聲／分音，不會直接選一般候選", self.source)
+        self.assertNotIn("可用滑鼠、<kbd>Enter</kbd>、<kbd>Space</kbd> 或 <kbd>Shift+1～0</kbd> / <kbd>Shift+A～J</kbd> 選字。", self.source)
         self.assertIn("取消未確認注音", self.source)
         self.assertNotIn("送出未確認中文", self.source)
         self.assertNotIn("單按 <b>Shift</b> 只切換中／英輸入", self.source)
         self.assertNotIn("單按 <kbd>Shift</kbd> 只切換中英模式", self.source)
+
+    def test_full_guide_uses_border_box_for_mobile_width(self):
+        self.assertIn(".full-guide{box-sizing:border-box;", self.source)
 
     def test_runner_invokes_special_candidate_static_test(self):
         self.assertIn("python3 Tests/test_html_special_candidates_static.py", self.runner)
