@@ -1124,11 +1124,11 @@
     }
     if(state.shiftDown || e.shiftKey) state.shiftUsed=true;
     if((e.metaKey||e.ctrlKey) && ['c','v','x','a','r'].includes(e.key.toLowerCase())) return;
+    if(typeof e.getModifierState==='function') state.capsLock=!!e.getModifierState('CapsLock');
+    if(e.key==='CapsLock'){render();return;}
 
     if(state.inputMode==='en'){
       if(e.metaKey||e.ctrlKey||e.altKey) return;
-      if(typeof e.getModifierState==='function') state.capsLock=!!e.getModifierState('CapsLock');
-      if(e.key==='CapsLock'){render();return;}
       const enPunct=keyboardPunctuation('en',e.code,e.shiftKey,false);
       if(enPunct){e.preventDefault();stagePunctuation(enPunct);return;}
       if(e.key==='Backspace'){e.preventDefault();control('backspace');return;}
@@ -1147,11 +1147,12 @@
     if(e.shiftKey && /^Key[A-J]$/.test(e.code) && state.candidates.length){e.preventDefault();commitSlot(10 + (e.code.charCodeAt(3)-65));return;}
     if(e.shiftKey && /^[a-z]$/i.test(e.key)){
       e.preventDefault();
+      if(state.pendingParts.length) finalizePending();
       state.composition='';
       state.candidates=[];
       state.selected=0;
       state.candidateMode=false;
-      handleEnglishChar(e.key);
+      handleEnglishChar(e.key.toLowerCase());
       return;
     }
     if(state.candidateMode && /^[1-9]$/.test(e.key) && state.candidates.length){e.preventDefault();commitSlot(Number(e.key)-1);return;}
