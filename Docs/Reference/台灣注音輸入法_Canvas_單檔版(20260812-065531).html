@@ -753,10 +753,12 @@
   }
   function setToast(s){ state.toast=s;state.toastUntil=performance.now()+1400;render(); }
   function switchInputMode(){
-    if(state.inputMode==='zh' && state.composition){
-      if(!commitCandidate()) return false;
-    }
     if(state.inputMode==='zh' && state.pendingParts.length) finalizePending();
+    if(state.inputMode==='zh' && (state.composition || state.candidates.length)){
+      state.composition='';
+      state.candidates=[];
+      state.selected=0;
+    }
     state.inputMode=toggleInputMode(state.inputMode);
     state.candidateMode=false;
     saveSettings();render();return true;

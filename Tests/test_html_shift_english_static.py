@@ -1,6 +1,15 @@
 from pathlib import Path
 
 html = Path('Docs/Reference/台灣注音輸入法_Canvas_單檔版(20260812-065531).html').read_text(encoding='utf-8')
+
+switch_start = html.index('function switchInputMode(){')
+switch_end = html.index('function switchOutputScript(){', switch_start)
+switch_block = html[switch_start:switch_end]
+assert "if(state.inputMode==='zh' && state.pendingParts.length) finalizePending();" in switch_block
+assert "state.composition=''" in switch_block
+assert 'state.candidates=[]' in switch_block
+assert 'commitCandidate()' not in switch_block
+
 start = html.index("if(e.shiftKey && /^Digit[1-9]$/.test(e.code)")
 end = html.index("const zhPunct=", start)
 block = html[start:end]
