@@ -6,6 +6,7 @@ switch_start = html.index('function switchInputMode(){')
 switch_end = html.index('function switchOutputScript(){', switch_start)
 switch_block = html[switch_start:switch_end]
 assert "if(state.inputMode==='zh' && state.pendingParts.length) finalizePending();" in switch_block
+assert "if(state.specialMode){state.specialMode=null;state.selected=0;}" in switch_block
 assert "state.composition=''" in switch_block
 assert 'state.candidates=[]' in switch_block
 assert 'commitCandidate()' not in switch_block

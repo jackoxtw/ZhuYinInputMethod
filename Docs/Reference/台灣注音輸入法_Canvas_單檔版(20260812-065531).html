@@ -23,7 +23,7 @@
 <body>
 <div class="title"><h1>台灣注音輸入法 · Canvas Prototype</h1><span>低記憶體詞庫｜聲母縮寫｜自適應候選｜中英切換｜繁入簡出｜中文標點｜離線單檔</span></div>
 <canvas id="imeCanvas" tabindex="0" role="application" aria-label="Canvas 注音輸入法"></canvas>
-<div class="note">單按 <b>Shift</b> 只切換中／英輸入；按 <b>Shift</b> 加英文字母時，會先送出已確認組字並<b>取消未確認注音</b>，再輸入英文。Shift 若搭配候選快捷鍵、<b>` Emoji</b>、<b>' 標點</b> 或其他標點則不切換。候選可用 <b>← → ↑ ↓</b>、<b>PageUp/PageDown</b>、<b>Home/End</b> 與 <b>Shift+1～0 / Shift+A～J</b> 操作；更多細節請見下方 <a href="#full-guide-title">完整使用說明</a>。</div>
+<div class="note">單按 <b>Shift</b> 會先送出已確認 pending 片段，再清除未確認 composition／一般候選並切換中／英輸入；按 <b>Shift</b> 加英文字母時，會同樣保留已確認、取消未確認並直接輸入英文，也就是取消未確認注音。Shift 若搭配候選快捷鍵、<b>` Emoji</b>、<b>' 標點</b> 或其他標點則不切換。候選可用 <b>← → ↑ ↓</b>、<b>PageUp/PageDown</b>、<b>Home/End</b> 與 <b>Shift+1～0 / Shift+A～J</b> 操作；更多細節請見下方 <a href="#full-guide-title">完整使用說明</a>。</div>
 <section class="full-guide" aria-labelledby="full-guide-title">
   <h2 id="full-guide-title">完整使用說明</h2>
   <h3>注音與候選</h3>
@@ -34,8 +34,8 @@
   </ul>
   <h3>中英切換與快捷鍵</h3>
   <ul>
-    <li>單按 <kbd>Shift</kbd> 只切換中英模式；按 <kbd>Shift</kbd> 搭配候選快捷鍵時，仍優先選字，不會切換模式。</li>
-    <li><b>Shift 英文字母</b> 會先送出已確認的中文片段、<b>取消未確認注音</b>，再輸入對應英文；<kbd>Caps Lock</kbd> 會影響英文字母大小寫。</li>
+    <li>單按 <kbd>Shift</kbd> 會先送出已確認 pending 片段，再清除未確認 composition／一般候選並切換中英模式；按 <kbd>Shift</kbd> 搭配候選快捷鍵時，仍優先選字，不會切換模式。</li>
+    <li><b>Shift 英文字母</b> 會同樣保留已確認、取消未確認並直接輸入英文，也就是取消未確認注音；<kbd>Caps Lock</kbd> 會影響英文字母大小寫。</li>
     <li>此 HTML 試用版用候選面板右側「繁／簡」按鈕模擬 <kbd>F9</kbd> 的繁簡切換；最終送出時才會依設定轉成簡體，其餘候選與學習內容維持繁體。</li>
   </ul>
   <h3>Emoji、標點與個人學習</h3>
@@ -789,6 +789,7 @@
   }
   function setToast(s){ state.toast=s;state.toastUntil=performance.now()+1400;render(); }
   function switchInputMode(){
+    if(state.specialMode){state.specialMode=null;state.selected=0;}
     if(state.inputMode==='zh' && state.pendingParts.length) finalizePending();
     if(state.inputMode==='zh' && (state.composition || state.candidates.length)){
       state.composition='';
@@ -873,7 +874,17 @@
     if(!state.specialMode) return commitCandidate(absIndex);
     const item=specialCandidates()[absIndex];
     if(!item) return false;
-    state.specialMode=null;state.selected=0;stagePunctuation(item);refreshCandidates();return true;
+    const previousMode=state.specialMode;
+    let previousComposition='';
+    state.specialMode=null;state.selected=0;
+    let staged=false;
+    while(!staged && state.composition && state.composition!==previousComposition){
+      previousComposition=state.composition;
+      staged=stagePunctuation(item);
+    }
+    if(!staged && !state.composition) staged=stagePunctuation(item);
+    if(!staged){state.specialMode=previousMode;state.selected=absIndex;render();return false;}
+    refreshCandidates();return true;
   }
   function commitCandidate(absIndex=state.selected){
     const c=state.candidates[absIndex];
@@ -960,7 +971,7 @@
     state.selected=(state.selected+delta+candidates.length)%candidates.length;render();
   }
   function moveCandidateGrid(direction){
-    const rowSize=Math.max(1,Math.floor(candidatePageSize()/2));
+    const rowSize=state.specialMode?10:Math.max(1,Math.floor(candidatePageSize()/2));
     moveCandidate(candidateGridDelta(direction,rowSize));
   }
   function pageCandidate(delta){

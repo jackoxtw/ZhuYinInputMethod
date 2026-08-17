@@ -57,6 +57,16 @@ class HtmlSpecialCandidatesStaticTests(unittest.TestCase):
             "canvas.addEventListener('pointerup',e=>{",
             "canvas.addEventListener('contextmenu',e=>",
         )
+        cls.choose_selected_block = cls.slice_between(
+            cls.source,
+            "function chooseSelectedCandidate(absIndex=state.selected){",
+            "function commitCandidate(absIndex=state.selected){",
+        )
+        cls.move_candidate_grid_block = cls.slice_between(
+            cls.source,
+            "function moveCandidateGrid(direction){",
+            "function pageCandidate(delta){",
+        )
 
     @staticmethod
     def slice_between(source, start_marker, end_marker, after=None):
@@ -123,13 +133,43 @@ class HtmlSpecialCandidatesStaticTests(unittest.TestCase):
         self.assertIn("state.specialMode==='emoji'?'Emoji 候選':'中文標點候選'", self.render_block)
         self.assertIn("else chooseSelectedCandidate(hit.index);", self.pointer_block)
 
+    def test_special_grid_vertical_navigation_uses_ten_slots_only_in_special_mode(self):
+        self.assertIn(
+            "const rowSize=state.specialMode?10:Math.max(1,Math.floor(candidatePageSize()/2));",
+            self.move_candidate_grid_block,
+        )
+        self.assertNotIn(
+            "const rowSize=Math.max(1,Math.floor(candidatePageSize()/2));",
+            self.move_candidate_grid_block,
+        )
+
+    def test_special_selection_retries_punctuation_staging_and_restores_panel_on_failure(self):
+        self.assertIn("const previousMode=state.specialMode;", self.choose_selected_block)
+        self.assertIn("let previousComposition='';", self.choose_selected_block)
+        self.assertIn(
+            "while(!staged && state.composition && state.composition!==previousComposition){",
+            self.choose_selected_block,
+        )
+        self.assertIn(
+            "if(!staged){state.specialMode=previousMode;state.selected=absIndex;render();return false;}",
+            self.choose_selected_block,
+        )
+        self.assertNotIn(
+            "state.specialMode=null;state.selected=0;stagePunctuation(item);refreshCandidates();return true;",
+            self.choose_selected_block,
+        )
+
     def test_bottom_guide_is_permanent_and_documents_current_behavior(self):
         self.assertIn('<section class="full-guide" aria-labelledby="full-guide-title">', self.source)
         self.assertGreater(self.source.index('<section class="full-guide"'), self.source.index('<canvas id="imeCanvas"'))
         for phrase in ['Shift 英文字母', '取消未確認注音', '反引號 `', "單引號 '", 'F9', 'Option', '僅保存在本機']:
             self.assertIn(phrase, self.source)
+        self.assertIn("會先送出已確認 pending 片段，再清除未確認 composition／一般候選並切換", self.source)
+        self.assertIn("同樣保留已確認、取消未確認並直接輸入英文", self.source)
         self.assertIn("取消未確認注音", self.source)
         self.assertNotIn("送出未確認中文", self.source)
+        self.assertNotIn("單按 <b>Shift</b> 只切換中／英輸入", self.source)
+        self.assertNotIn("單按 <kbd>Shift</kbd> 只切換中英模式", self.source)
 
     def test_runner_invokes_special_candidate_static_test(self):
         self.assertIn("python3 Tests/test_html_special_candidates_static.py", self.runner)
