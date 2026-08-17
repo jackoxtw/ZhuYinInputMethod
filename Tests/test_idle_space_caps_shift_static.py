@@ -27,6 +27,16 @@ assert '[self showInternalState:client]' in latin_block, \
 assert 'if(_pieceCount)[self learnAndCommit:client];' in latin_block, \
     'Already confirmed pieces must still commit before Latin input'
 
+# Shift-alone language toggles must commit confirmed pieces but discard any
+# unconfirmed composition instead of selecting/committing a candidate.
+toggle_start = controller.index('- (void)toggleLanguage:')
+toggle_end = controller.index('- (void)toggleScript:', toggle_start)
+toggle = controller[toggle_start:toggle_end]
+assert '[self chooseSelected:client]' not in toggle
+assert 'if(_pieceCount)[self learnAndCommit:client];' in toggle
+assert '[_composition setString:@""]' in toggle
+assert '[self showInternalState:client]' in toggle
+
 # Idle Space must bypass pending punctuation/learning and insert a real space directly.
 space_case = controller.split('case 49:', 1)[1].split('case 36:', 1)[0]
 assert '[client insertText:@" " replacementRange:NSMakeRange(NSNotFound,NSNotFound)]' in space_case, 'idle Space must insert directly into client'

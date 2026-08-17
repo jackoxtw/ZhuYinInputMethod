@@ -274,8 +274,13 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
 }
 
 - (void)toggleLanguage:(id)client {
-    if(_chinese&&_composition.length&&_candidateCount)[self chooseSelected:client];
-    if(_chinese&&_pieceCount)[self learnAndCommit:client];
+    if(_pieceCount)[self learnAndCommit:client];
+    if(_chinese&&(_composition.length||_candidateCount)){
+        [_composition setString:@""];
+        _candidateCount=0;
+        _selected=0;
+        [self showInternalState:client];
+    }
     _chinese=!_chinese;_shiftAlone=NO;_specialMode=ZYSpecialCandidateNone;_candidateCount=0;
     if(_chinese){[self updateMarked:client];[self refreshCandidates:client];}
     else{[client setMarkedText:@"" selectionRange:NSMakeRange(0,0) replacementRange:NSMakeRange(NSNotFound,NSNotFound)];[self hideCandidatePanel];}
