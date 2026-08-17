@@ -706,10 +706,15 @@
   const savedSettings=loadSettings();
   const canvas = document.getElementById('imeCanvas');
   const ctx = canvas.getContext('2d', { alpha: false });
+  const SPECIAL_CANDIDATES = {
+    emoji:["😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😍","🥰","😘","😋","😜","🤪","🤔","🫡","🤗","🤭","🫢","🤫","🤐","😐","😑","😶","🙄","😏","😒","😔","😢","😭","😤","😡","🤬","😱","😨","😴","🤤","🤢","🤮","🤧","😷","🤒","🤕","🥳","😎","🤓","🧐","👍","👎","👌","🤌","✌️","🤞","🫶","🙏","👏","🙌","💪","❤️","🧡","💛","💚","💙","💜","🖤","🤍","💔","❣️","💕","💯","🔥","✨","⭐","🌟","🎉","🎊","✅","❌","⚠️","❓","❗","💡","📌","📍","🚀","🎁","🎂","☕","🍜","🍺","🍻"],
+    punctuation:["，","。","、","？","！","：","；","「","」","『","』","（","）","［","］","【","】","〔","〕","〈","〉","《","》","…","——","—","～","·","‧","／","＼","｜","＠","＃","＄","％","＆","＊","＋","－","＝","＿"]
+  };
   const state = {
     committed: '', pendingText: '', pendingQuery: '', pendingSegments: [], pendingParts: [], composition: '', candidates: [], selected: 0,
     width: 900, height: 620, hits: [], pointerDown: null,
     candidateMode: false, toast: '', toastUntil: 0, visibleCandidates: 20, candidatePanel: {y:190,h:132}, helpVisible: false,
+    specialMode: null,
     inputMode: savedSettings.inputMode==='en'?'en':'zh',
     outputScript: savedSettings.outputScript==='simp'?'simp':'trad',
     shiftDown: false, shiftUsed: false, optionDown: false, capsLock: false
@@ -745,9 +750,13 @@
   }
   function addHit(x,y,w,h,data){ state.hits.push({x,y,w,h,...data}); }
   function hitAt(x,y){ for(let i=state.hits.length-1;i>=0;i--){ const h=state.hits[i]; if(x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h) return h; } return null; }
-  function pageStart(){ return Math.floor(state.selected/state.visibleCandidates)*state.visibleCandidates; }
+  function specialCandidates(){ return state.specialMode ? SPECIAL_CANDIDATES[state.specialMode] : []; }
+  function activeCandidates(){ return state.specialMode ? specialCandidates() : state.candidates; }
+  function candidatePageSize(){ return state.specialMode ? 50 : 20; }
+  function pageStart(){ return Math.floor(state.selected/candidatePageSize())*candidatePageSize(); }
   function candidateColumns(){
-    const longest=Math.max(1,...state.candidates.slice(pageStart(),pageStart()+20).map(c=>Array.from(c.word||'').length));
+    if(state.specialMode) return state.width<560?5:10;
+    const longest=Math.max(1,...activeCandidates().slice(pageStart(),pageStart()+candidatePageSize()).map(c=>Array.from(c.word||'').length));
     if(state.width<560) return longest>=3?4:5;
     return longest>=4?4:(longest>=3?5:10);
   }
@@ -797,6 +806,17 @@
     state.candidateMode = false;
     render();
   }
+  function openSpecialCandidates(mode){
+    if(!SPECIAL_CANDIDATES[mode]?.length) return false;
+    state.specialMode=mode;state.selected=0;state.candidateMode=false;render();return true;
+  }
+  function closeSpecialCandidates(){
+    if(!state.specialMode) return false;
+    state.specialMode=null;refreshCandidates();return true;
+  }
+  function toggleSpecialCandidates(mode){
+    return state.specialMode===mode ? closeSpecialCandidates() : openSpecialCandidates(mode);
+  }
   function handleSymbol(sym){
     const parserCandidates=state.composition ? core.lookupPhrases(state.composition,45) : [];
     const advanced=advanceComposition({
@@ -821,6 +841,12 @@
     state.selected=0;
     state.candidateMode=false;
     render();
+  }
+  function chooseSelectedCandidate(){
+    if(!state.specialMode) return commitCandidate(state.selected);
+    const item=specialCandidates()[state.selected];
+    if(!item) return false;
+    state.specialMode=null;state.selected=0;stagePunctuation(item);refreshCandidates();return true;
   }
   function commitCandidate(absIndex=state.selected){
     const c=state.candidates[absIndex];
@@ -897,24 +923,28 @@
     render();return true;
   }
   function commitSlot(slot){
+    const candidates=activeCandidates();
     const idx=pageStart()+slot;
-    if(idx<state.candidates.length){state.selected=idx;commitCandidate(idx);}
+    if(idx<candidates.length){state.selected=idx;chooseSelectedCandidate();}
   }
   function moveCandidate(delta){
-    if(!state.candidates.length) return;
-    state.selected=(state.selected+delta+state.candidates.length)%state.candidates.length;render();
+    const candidates=activeCandidates();
+    if(!candidates.length) return;
+    state.selected=(state.selected+delta+candidates.length)%candidates.length;render();
   }
   function moveCandidateGrid(direction){
-    const rowSize=Math.max(1,Math.floor(state.visibleCandidates/2));
+    const rowSize=Math.max(1,Math.floor(candidatePageSize()/2));
     moveCandidate(candidateGridDelta(direction,rowSize));
   }
   function pageCandidate(delta){
-    if(!state.candidates.length) return;
-    state.selected=Math.max(0,Math.min(state.candidates.length-1,state.selected+delta*state.visibleCandidates));render();
+    const candidates=activeCandidates();
+    if(!candidates.length) return;
+    state.selected=Math.max(0,Math.min(candidates.length-1,state.selected+delta*candidatePageSize()));render();
   }
   function edgeCandidate(which){
-    if(!state.candidates.length) return;
-    state.selected=which==='end'?state.candidates.length-1:0;render();
+    const candidates=activeCandidates();
+    if(!candidates.length) return;
+    state.selected=which==='end'?candidates.length-1:0;render();
   }
   async function copyOutput(){
     const value=state.committed;
@@ -944,10 +974,12 @@
     }
 
     if(action==='backspace'){
+      if(state.specialMode){closeSpecialCandidates();return;}
       if(state.composition){state.composition=deleteLastCodePoint(state.composition);refreshCandidates();}
       else if(state.pendingParts.length){undoPendingPart();}
       else {state.committed=deleteLastCodePoint(state.committed);render();}
     } else if(action==='space'){
+      if(state.specialMode){chooseSelectedCandidate();return;}
       const intent=resolveSpaceAction(state.composition);
       if(intent==='firstTone'){
         state.candidateMode=false;
@@ -958,13 +990,16 @@
         state.committed+=' ';render();
       }
     } else if(action==='enter'){
+      if(state.specialMode){chooseSelectedCandidate();return;}
       if(state.composition){
         if(!commitCandidate()) setToast('請先選字');
       } else if(state.pendingParts.length){
         finalizePending();
       } else {state.committed+='\n';render();}
     } else if(action==='escape'){
-      if(state.composition){
+      if(state.specialMode){
+        closeSpecialCandidates();return;
+      } else if(state.composition){
         state.composition='';state.candidates=[];state.selected=0;state.candidateMode=false;render();
       } else if(state.pendingParts.length){
         state.pendingText='';state.pendingQuery='';state.pendingSegments=[];state.pendingParts=[];state.candidates=[];state.selected=0;state.candidateMode=false;render();
@@ -1018,14 +1053,15 @@
       const pendingPreview=pendingSurface(state.pendingParts);
       const preedit=pendingPreview+(pendingPreview&&state.composition?'　':'')+(state.composition||'');
       text(preedit || '開始輸入注音…',28,159,25,'700','left',preedit?'#1d2a44':'#95a0b4');
-      if(state.candidates[0]) text('→ '+state.candidates[0].word,w-28,159,20,'700','right','#315fba');
+      if(activeCandidates()[0]) text('→ '+(state.specialMode?activeCandidates()[0]:activeCandidates()[0].word),w-28,159,20,'700','right','#315fba');
     } else {
       text('英文',28,139,11,'700','left','#58709c');
       text('English mode · 直接輸入字母、數字與符號',28,159,21,'700','left','#1d2a44');
     }
 
+    const candidates=activeCandidates();
     const candidateY=190, railW=64, gap=6, candRowGap=8, chipH=46;
-    const columns=candidateColumns(), visible=20, rows=Math.ceil(visible/columns);
+    const columns=candidateColumns(), visible=candidatePageSize(), rows=Math.ceil(visible/columns);
     state.visibleCandidates=visible;
     const candidateH=20+rows*chipH+(rows-1)*candRowGap;
     state.candidatePanel={y:candidateY,h:candidateH};
@@ -1034,16 +1070,17 @@
     const start=pageStart(), chipW=(innerW-gap*(columns-1))/columns;
     if(state.inputMode==='zh'){
       for(let slot=0;slot<visible;slot++){
-        const abs=start+slot,c=state.candidates[abs]; if(!c) continue;
+        const abs=start+slot,c=candidates[abs]; if(!c) continue;
         const col=slot%columns,row=Math.floor(slot/columns),x=innerX+col*(chipW+gap),y=candidateY+10+row*(chipH+candRowGap),selected=abs===state.selected;
         roundRect(x,y,chipW,chipH,11,selected?'#2765c7':'#303030',selected?'#3979dd':'#303030');
         const label=slot<10?String((slot+1)%10):String.fromCharCode(65+slot-10);
         text(label,x+8,y+12,10,'700','left',selected?'#cfe0ff':'#aab0bb');
-        text(c.word,x+chipW/2,y+27,Math.min(19,Math.max(13,18-Array.from(c.word).length*0.6)),'700','center','#ffffff');
-        if(state.optionDown && c.learned) text('刪除',x+chipW-7,y+11,10,'700','right',selected?'#ffffff':'#ff9a9a');
+        const value=state.specialMode?String(c):c.word;
+        text(value,x+chipW/2,y+27,Math.min(19,Math.max(13,18-Array.from(value).length*0.6)),'700','center','#ffffff');
+        if(!state.specialMode && state.optionDown && c.learned) text('刪除',x+chipW-7,y+11,10,'700','right',selected?'#ffffff':'#ff9a9a');
         addHit(x,y,chipW,chipH,{type:'candidate',index:abs});
       }
-      if(!state.candidates.length) text(state.composition?'沒有完整詞時會顯示單字；選完後再按 Enter 送出':(state.pendingParts.length?'已選字，按 Enter 確認並學習新詞':'候選會顯示在這裡'),innerX+innerW/2,candidateY+candidateH/2,14,'500','center','#b7b7b7');
+      if(!candidates.length) text(state.composition?'沒有完整詞時會顯示單字；選完後再按 Enter 送出':(state.pendingParts.length?'已選字，按 Enter 確認並學習新詞':'候選會顯示在這裡'),innerX+innerW/2,candidateY+candidateH/2,14,'500','center','#b7b7b7');
     } else text('英文輸入模式　｜　單按 Shift 切回中文',innerX+innerW/2,candidateY+candidateH/2,16,'700','center','#c3c3c3');
     const railButtonH=18;
     const railGap=3;
@@ -1105,9 +1142,9 @@
     if(state.inputMode==='zh' && d && d.y>=state.candidatePanel.y && d.y<=state.candidatePanel.y+state.candidatePanel.h && Math.abs(p.x-d.x)>50){pageCandidate(p.x<d.x?1:-1);return;}
     const hit=hitAt(p.x,p.y); if(!hit)return;
     if(hit.type==='candidate'){
-      if(state.optionDown && state.candidates[hit.index] && state.candidates[hit.index].learned){
+      if(!state.specialMode && state.optionDown && state.candidates[hit.index] && state.candidates[hit.index].learned){
         if(core.removeCandidateLearning(state.candidates[hit.index])){ saveLearning(); refreshCandidates(); setToast('已刪除學習'); }
-      } else commitCandidate(hit.index);
+      } else { state.selected=hit.index; chooseSelectedCandidate(); }
     }
     else if(hit.type==='symbol')handleSymbol(hit.value);
     else if(hit.type==='english')handleEnglishChar(hit.value);
@@ -1142,13 +1179,14 @@
     }
 
     if(e.key==='Tab' && state.composition){e.preventDefault();control('candidateMode');return;}
-    if(/^Numpad[1-9]$/.test(e.code) && state.candidates.length){e.preventDefault();commitSlot(Number(e.code.slice(-1))-1);return;}
-    if(e.code==='Numpad0' && state.candidates.length){e.preventDefault();commitSlot(9);return;}
-    if(e.shiftKey && /^Digit[1-9]$/.test(e.code) && state.candidates.length){e.preventDefault();commitSlot(Number(e.code.slice(-1))-1);return;}
-    if(e.shiftKey && e.code==='Digit0' && state.candidates.length){e.preventDefault();commitSlot(9);return;}
-    if(e.shiftKey && /^Key[A-J]$/.test(e.code) && state.candidates.length){e.preventDefault();commitSlot(10 + (e.code.charCodeAt(3)-65));return;}
+    if(/^Numpad[1-9]$/.test(e.code) && activeCandidates().length){e.preventDefault();commitSlot(Number(e.code.slice(-1))-1);return;}
+    if(e.code==='Numpad0' && activeCandidates().length){e.preventDefault();commitSlot(9);return;}
+    if(e.shiftKey && /^Digit[1-9]$/.test(e.code) && activeCandidates().length){e.preventDefault();commitSlot(Number(e.code.slice(-1))-1);return;}
+    if(e.shiftKey && e.code==='Digit0' && activeCandidates().length){e.preventDefault();commitSlot(9);return;}
+    if(e.shiftKey && /^Key[A-J]$/.test(e.code) && activeCandidates().length){e.preventDefault();commitSlot(10 + (e.code.charCodeAt(3)-65));return;}
     if(e.shiftKey && /^[a-z]$/i.test(e.key)){
       e.preventDefault();
+      if(state.specialMode) closeSpecialCandidates();
       if(state.pendingParts.length) finalizePending();
       state.composition='';
       state.candidates=[];
@@ -1157,14 +1195,16 @@
       handleEnglishChar(e.key.toLowerCase());
       return;
     }
-    if(state.candidateMode && /^[1-9]$/.test(e.key) && state.candidates.length){e.preventDefault();commitSlot(Number(e.key)-1);return;}
+    if(state.candidateMode && /^[1-9]$/.test(e.key) && activeCandidates().length){e.preventDefault();commitSlot(Number(e.key)-1);return;}
+    if(e.code==='Backquote'){e.preventDefault();toggleSpecialCandidates('emoji');return;}
+    if(e.code==='Quote'){e.preventDefault();toggleSpecialCandidates('punctuation');return;}
 
     const zhPunct=keyboardPunctuation('zh',e.code,e.shiftKey,state.candidates.length>0);
     if(zhPunct){e.preventDefault();stagePunctuation(zhPunct);return;}
 
-    if(e.key==='Backspace'){e.preventDefault();control('backspace');return;}
-    if(e.key===' '){e.preventDefault();control('space');return;}
-    if(e.key==='Enter'){e.preventDefault();control('enter');return;}
+    if(e.key==='Backspace'){e.preventDefault();if(state.specialMode){closeSpecialCandidates();return;}control('backspace');return;}
+    if(e.key===' '){e.preventDefault();if(state.specialMode)return chooseSelectedCandidate();control('space');return;}
+    if(e.key==='Enter'){e.preventDefault();if(state.specialMode)return chooseSelectedCandidate();control('enter');return;}
     if(e.key==='ArrowLeft'){e.preventDefault();control('left');return;}
     if(e.key==='ArrowRight'){e.preventDefault();control('right');return;}
     if(e.key==='ArrowUp'){e.preventDefault();control('up');return;}
@@ -1173,9 +1213,9 @@
     if(e.key==='PageDown'){e.preventDefault();control('pageRight');return;}
     if(e.key==='Home'){e.preventDefault();control('home');return;}
     if(e.key==='End'){e.preventDefault();control('end');return;}
-    if(e.key==='Escape'){e.preventDefault();control('escape');return;}
+    if(e.key==='Escape'){e.preventDefault();if(state.specialMode){closeSpecialCandidates();return;}control('escape');return;}
     const sym=mapPhysicalKey(e.key);
-    if(sym){e.preventDefault();handleSymbol(sym);}
+    if(sym){e.preventDefault();closeSpecialCandidates();handleSymbol(sym);}
   },{passive:false});
 
   window.addEventListener('keyup',e=>{
