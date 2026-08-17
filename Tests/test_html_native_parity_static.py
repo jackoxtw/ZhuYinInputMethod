@@ -15,14 +15,15 @@ class HtmlNativeParityStaticTests(unittest.TestCase):
         self.assertIn("state.optionDown && c.learned", source)
         self.assertIn("removeCandidateLearning(state.candidates[hit.index])", source)
 
-    def test_switching_to_english_commits_unfinished_chinese(self):
+    def test_switching_to_english_discards_unfinished_chinese(self):
         source = HTML.read_text()
         start = source.index("function switchInputMode()")
         end = source.index("function switchOutputScript()", start)
         switcher = source[start:end]
-        self.assertIn("if(state.inputMode==='zh' && state.composition)", switcher)
-        self.assertIn("commitCandidate()", switcher)
-        self.assertIn("finalizePending()", switcher)
+        self.assertIn("if(state.inputMode==='zh' && state.pendingParts.length) finalizePending();", switcher)
+        self.assertIn("state.composition=''", switcher)
+        self.assertIn("state.candidates=[]", switcher)
+        self.assertNotIn("commitCandidate()", switcher)
 
     def test_candidate_panel_uses_native_style_adaptive_grid_and_control_rail(self):
         source = HTML.read_text()
