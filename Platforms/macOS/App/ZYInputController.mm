@@ -327,8 +327,13 @@ static NSString *chinesePunctuation(unsigned short k,BOOL shift){if(!shift){if(k
     if(shift&&isASCIIEnglishLetter(event.characters)){
         BOOL hadCandidates=_candidateCount!=0;
         if(_specialMode!=ZYSpecialCandidateNone)[self closeSpecialCandidates:client];
-        if(_composition.length&&_candidateCount)[self chooseSelected:client];
         if(_pieceCount)[self learnAndCommit:client];
+        if(_composition.length || _candidateCount) {
+            [_composition setString:@""];
+            _candidateCount=0;
+            _selected=0;
+            [self showInternalState:client];
+        }
         NSString *latin=event.characters;
         if(!hadCandidates){
             NSString *base=[latin lowercaseString];

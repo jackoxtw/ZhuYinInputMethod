@@ -18,6 +18,14 @@ assert 'NSEventModifierFlagCapsLock' in latin_block, 'Shift Latin path must read
 assert '_candidateCount' in latin_block, 'Caps-only casing must be scoped to no-candidate input'
 assert 'lowercaseString' in latin_block, 'Caps Lock off must normalize Shift+letter to lowercase'
 assert 'uppercaseString' in latin_block, 'Caps Lock on must normalize Shift+letter to uppercase'
+assert '[self chooseSelected:client]' not in latin_block, \
+    'Shift English must not commit an unconfirmed selected candidate'
+assert '[_composition setString:@""]' in latin_block, \
+    'Shift English must discard unconfirmed Zhuyin composition'
+assert '[self showInternalState:client]' in latin_block, \
+    'Discarding composition must also clear marked text and candidate UI'
+assert 'if(_pieceCount)[self learnAndCommit:client];' in latin_block, \
+    'Already confirmed pieces must still commit before Latin input'
 
 # Idle Space must bypass pending punctuation/learning and insert a real space directly.
 space_case = controller.split('case 49:', 1)[1].split('case 36:', 1)[0]
