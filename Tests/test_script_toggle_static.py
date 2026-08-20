@@ -9,7 +9,7 @@ controller = (root / 'Platforms/macOS/App/ZYInputController.mm').read_text('utf-
 assert '- (void)candidatePanelToggleScript;' in header, 'candidate panel delegate must expose script toggle callback'
 assert '_cv.simplified=simplified;' in panel, 'panel must retain simplified state passed by controller'
 assert 'NSString *scriptLabel=self.simplified?@"簡":@"繁";' in panel, 'panel must render current script label'
-assert 'NSMakeRect(732,28,48,32)' in panel, 'candidate panel must reserve a 48x32 script button beside candidates'
+assert 'NSMakeRect(732,6,48,32)' in panel, 'candidate panel must reserve a top-aligned 48x32 script button beside candidates'
 assert '[self.panel candidateViewToggleScript]' in panel, 'view click must route to panel'
 assert '[self.candidateDelegate candidatePanelToggleScript]' in panel, 'panel must forward script click to controller'
 assert 'NSMakeRect(0,0,786,110)' in panel, 'panel width must include candidate grid plus script/help/clear controls'

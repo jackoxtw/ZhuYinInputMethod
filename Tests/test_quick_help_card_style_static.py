@@ -21,3 +21,11 @@ print('test_quick_help_card_style_static: OK')
 assert 'Shift + A–Z' in p
 assert '先送出中文，再輸入英文' in p
 assert 'initWithContentRect:NSMakeRect(0,0,440,460)' in p
+assert 'github.com/jackoxtw/ZhuYinInputMethod' in p
+assert '- (NSRect)githubRect' in p
+assert 'NSPointInRect(p,self.githubRect)' in p
+assert '[[NSWorkspace sharedWorkspace] openURL:' in p
+assert 'https://github.com/jackoxtw/ZhuYinInputMethod' in p
+assert '- (NSRect)scriptRect{return NSMakeRect(732,6,48,32);}' in p
+assert '- (NSRect)helpRect{return NSMakeRect(732,42,48,18);}' in p
+assert 'drawAtPoint:NSMakePoint(756-modeSize.width/2,66)' in p

@@ -23,6 +23,7 @@
 - (BOOL)mouseDownCanMoveWindow{return NO;}
 - (NSRect)helpCloseRect{return NSMakeRect(397,14,25,25);}
 - (NSRect)helpBottomCloseRect{return NSMakeRect(306,412,108,34);}
+- (NSRect)githubRect{return NSMakeRect(24,394,270,16);}
 - (void)drawPill:(NSString *)text rect:(NSRect)rect{
     [[NSColor colorWithWhite:.22 alpha:1] setFill];
     [[NSBezierPath bezierPathWithRoundedRect:rect xRadius:6 yRadius:6] fill];
@@ -70,6 +71,9 @@
     [self drawShortcut:@"F9" detail:@"切換繁體／簡體輸出" y:342];
     [self drawShortcut:@"`  /  '" detail:@"Emoji ／ 中文標點" y:372];
 
+    NSDictionary *githubAttrs=@{NSFontAttributeName:[NSFont monospacedSystemFontOfSize:10.5 weight:NSFontWeightMedium],NSForegroundColorAttributeName:[NSColor colorWithRed:.56 green:.74 blue:1 alpha:1],NSUnderlineStyleAttributeName:@(NSUnderlineStyleSingle)};
+    [@"GitHub：github.com/jackoxtw/ZhuYinInputMethod" drawAtPoint:NSMakePoint(NSMinX(self.githubRect),NSMinY(self.githubRect)+3) withAttributes:githubAttrs];
+
     NSRect bottom=self.helpBottomCloseRect;
     NSDictionary *versionAttrs=@{NSFontAttributeName:[NSFont monospacedSystemFontOfSize:11 weight:NSFontWeightMedium],NSForegroundColorAttributeName:[NSColor colorWithWhite:.55 alpha:1]};
     [@"v0.1.49" drawAtPoint:NSMakePoint(24,NSMidY(bottom)-6) withAttributes:versionAttrs];
@@ -81,6 +85,7 @@
 }
 - (void)mouseDown:(NSEvent *)event{
     NSPoint p=[self convertPoint:event.locationInWindow fromView:nil];
+    if(NSPointInRect(p,self.githubRect)){[[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://github.com/jackoxtw/ZhuYinInputMethod"]];return;}
     if(NSPointInRect(p,self.helpCloseRect)||NSPointInRect(p,self.helpBottomCloseRect)){
         [self.owner closeQuickHelp];return;
     }
@@ -271,8 +276,8 @@ static NSDictionary *ZYClearLearningLabelAttributes(void){
 - (BOOL)needsPanelToBecomeKey{return NO;}
 - (BOOL)acceptsFirstResponder{return NO;}
 - (BOOL)mouseDownCanMoveWindow{return NO;}
-- (NSRect)scriptRect{return NSMakeRect(732,28,48,32);}
-- (NSRect)helpRect{return NSMakeRect(732,64,48,18);}
+- (NSRect)scriptRect{return NSMakeRect(732,6,48,32);}
+- (NSRect)helpRect{return NSMakeRect(732,42,48,18);}
 - (NSRect)clearLearningRect{return NSMakeRect(732,MAX(86.0,NSHeight(self.bounds)-24.0),48,18);}
 
 - (void)prepareCandidateTextLayout{
@@ -353,7 +358,7 @@ static NSDictionary *ZYClearLearningLabelAttributes(void){
     if(self.modeLabel.length){
         NSDictionary *modeAttrs=ZYModeLabelAttributes();
         NSSize modeSize=[self.modeLabel sizeWithAttributes:modeAttrs];
-        [self.modeLabel drawAtPoint:NSMakePoint(756-modeSize.width/2,7) withAttributes:modeAttrs];
+        [self.modeLabel drawAtPoint:NSMakePoint(756-modeSize.width/2,66) withAttributes:modeAttrs];
     }
 
     NSRect scriptRect=self.scriptRect;
