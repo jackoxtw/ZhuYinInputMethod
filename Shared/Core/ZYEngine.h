@@ -23,6 +23,7 @@ typedef struct {
     uint8_t consume_codepoints;
     uint8_t word_complete;
     uint8_t final_syllable_partial;
+    uint8_t learned;
     uint8_t segment_count;
     uint32_t segment_ids[ZY_CANDIDATE_MAX_SEGMENTS];
     uint8_t segment_consume_codepoints[ZY_CANDIDATE_MAX_SEGMENTS];
@@ -35,6 +36,7 @@ void zy_engine_close(ZYEngine *e);
 size_t zy_engine_lookup(ZYEngine *e,const char *query,ZYCandidate *out,size_t cap);
 size_t zy_engine_lookup_prefix(ZYEngine *e,const char *query,ZYCandidate *out,size_t cap);
 int zy_candidate_rank_compare(const void *aa,const void *bb);
+size_t zy_candidate_apply_length_policy(const ZYCandidate *in,size_t count,ZYCandidate *out,size_t cap);
 int zy_engine_pronunciation_key(ZYEngine *e,uint32_t word_id,char *out,size_t cap);
 int zy_engine_match_pron_key(const char *query,const char *pron_key,uint8_t *match_class,uint8_t *matched_chars,int *exact);
 

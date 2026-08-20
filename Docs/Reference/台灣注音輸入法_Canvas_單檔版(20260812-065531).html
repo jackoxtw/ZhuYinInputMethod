@@ -28,7 +28,7 @@
   <h2 id="full-guide-title">完整使用說明</h2>
   <h3>注音與候選</h3>
   <ul>
-    <li>直接輸入注音符號組字；候選依詞長自適應排列，可用滑鼠、<kbd>Enter</kbd> 或 <kbd>Shift+1～0</kbd> / <kbd>Shift+A～J</kbd> 選字。</li>
+    <li>直接輸入注音符號組字；候選先依輸入音節數顯示等長詞（1 音節→1 字、2 音節→2 字、3 音節→3 字，以此類推），後面再接讀音前綴相符、曾經學習過的較長詞，並依 3 字、4 字、5 字…由短到長排列；一般未學習長詞不會混入。沒有等長完整詞時才退回拆字候選。可用滑鼠、<kbd>Enter</kbd> 或 <kbd>Shift+1～0</kbd> / <kbd>Shift+A～J</kbd> 選字。</li>
     <li>候選面板支援 <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd>、<kbd>PageUp</kbd> / <kbd>PageDown</kbd> 翻頁，以及 <kbd>Home</kbd> / <kbd>End</kbd> 跳到首尾。</li>
     <li><kbd>Enter</kbd> 會確認目前組好的中文；<kbd>Space</kbd> 在組字末尾未標聲調時補上第一聲 <kbd>ˉ</kbd>，已有聲調時會選取目前候選但不立即送出，已有待確認片段時加入空白，閒置時則直接輸入空白；滑鼠點選候選時會保留 composition 與 pending 狀態，不會清掉已輸入內容。</li>
   </ul>
@@ -371,13 +371,63 @@
       for(const x of scored){
         const old=dedup.get(x.word);
         if(!old) dedup.set(x.word,x);
-        else if(!old.virtual && x.virtual){ old.score=Math.max(old.score,x.score); old.exactQuery=!!(old.exactQuery||x.exactQuery); old.userPhrase=!!(old.userPhrase||x.userPhrase); }
-        else if(old.virtual && !x.virtual){ x.score=Math.max(x.score,old.score); x.exactQuery=!!(x.exactQuery||old.exactQuery); x.userPhrase=!!(x.userPhrase||old.userPhrase); dedup.set(x.word,x); }
+        else if(!old.virtual && x.virtual){
+          old.score=Math.max(old.score,x.score);
+          old.exactQuery=!!(old.exactQuery||x.exactQuery);
+          old.userPhrase=!!(old.userPhrase||x.userPhrase);
+          old.learned=!!(old.learned||x.learned);
+          old.queryPreferred=!!(old.queryPreferred||x.queryPreferred);
+          old.learningKey=old.learningKey||x.learningKey||'';
+          old.pronKey=old.pronKey||x.pronKey||'';
+        }
+        else if(old.virtual && !x.virtual){
+          x.score=Math.max(x.score,old.score);
+          x.exactQuery=!!(x.exactQuery||old.exactQuery);
+          x.userPhrase=!!(x.userPhrase||old.userPhrase);
+          x.learned=!!(x.learned||old.learned);
+          x.queryPreferred=!!(x.queryPreferred||old.queryPreferred);
+          x.learningKey=x.learningKey||old.learningKey||'';
+          x.pronKey=x.pronKey||old.pronKey||'';
+          dedup.set(x.word,x);
+        }
         else if(x.score>old.score) dedup.set(x.word,x);
       }
       const all=[...dedup.values()];
       all.sort((x,y)=>(y.queryPreferred?1:0)-(x.queryPreferred?1:0) || y.score-x.score || x.word.localeCompare(y.word,'zh-Hant-TW'));
       const rows=all.map(x=>({id:x.id,word:x.word,score:x.score,matchClass:x.matchClass,matchedChars:x.matchedChars||0,weight:x.weight||0,virtual:!!x.virtual,userPhrase:!!x.userPhrase,learned:!!x.learned,learningKey:x.learningKey||'',dictionaryExact:!!x.dictionaryExact,exactQuery:!!x.exactQuery,pronKey:x.pronKey||'',segmentCandidate:false,consumeInputChars:0}));
+
+      // Prefer candidates whose pronunciation is fully consumed by the current input.
+      // matchedChars is the number of matched pronunciation syllables, so this keeps
+      // ㄓㄨㄥ as one syllable/one Han character while ㄋㄏ and ㄋㄏㄇ naturally prefer
+      // two- and three-character words. Learned user phrases participate in the same
+      // rule. Only fall back to the legacy segmentation candidates when no exact-length
+      // word exists at all, so typing never gets stuck on an unknown combination.
+      const exactLengthRows=rows.filter(x=>x.exactQuery && x.matchedChars>0 && Array.from(x.word).length===x.matchedChars);
+      if(exactLengthRows.length){
+        // Keep the current syllable-length candidates clean, then append only words
+        // the user has actually learned whose pronunciation continues from the
+        // current input. Generic longer dictionary phrases stay hidden.
+        const learnedContinuations=rows.filter(x=>{
+          if(!x.learned || x.exactQuery || x.matchedChars<=0) return false;
+          return Array.from(x.word).length>x.matchedChars;
+        });
+        learnedContinuations.sort((x,y)=>{
+          const xl=Array.from(x.word).length, yl=Array.from(y.word).length;
+          return xl-yl ||
+            (y.queryPreferred?1:0)-(x.queryPreferred?1:0) ||
+            y.score-x.score ||
+            x.word.localeCompare(y.word,'zh-Hant-TW');
+        });
+        if(!learnedContinuations.length) return exactLengthRows.slice(0,limit);
+
+        // The normal candidate page is 20 items. Reserve room for learned
+        // continuations so a large one-syllable candidate set cannot bury them.
+        const reserve=Math.min(learnedContinuations.length,Math.max(1,Math.ceil(limit/3)));
+        const exactCap=Math.min(exactLengthRows.length,Math.max(1,Math.min(20,limit-reserve)));
+        return exactLengthRows.slice(0,exactCap)
+          .concat(learnedContinuations.slice(0,Math.max(0,limit-exactCap)));
+      }
+
       if(includeSingles){
         const singles=singleCharSegmentCandidates(input,Math.min(24,limit));
         const seen=new Set(rows.map(x=>x.word));
@@ -1132,7 +1182,7 @@
         if(!state.specialMode && state.optionDown && c.learned) text('刪除',x+chipW-7,y+11,10,'700','right',selected?'#ffffff':'#ff9a9a');
         addHit(x,y,chipW,chipH,{type:'candidate',index:abs});
       }
-      if(!candidates.length) text(state.composition?'沒有完整詞時會顯示單字；選完後再按 Enter 送出':(state.pendingParts.length?'已選字，按 Enter 確認並學習新詞':'候選會顯示在這裡'),innerX+innerW/2,candidateY+candidateH/2,14,'500','center','#b7b7b7');
+      if(!candidates.length) text(state.composition?'沒有等長完整詞時才顯示拆字候選；選完後再按 Enter 送出':(state.pendingParts.length?'已選字，按 Enter 確認並學習新詞':'候選會顯示在這裡'),innerX+innerW/2,candidateY+candidateH/2,14,'500','center','#b7b7b7');
     } else text('英文輸入模式　｜　單按 Shift 切回中文',innerX+innerW/2,candidateY+candidateH/2,16,'700','center','#c3c3c3');
     const railButtonH=18;
     const railGap=3;
@@ -1140,7 +1190,7 @@
     rail.forEach(([label,action],i)=>{const y=candidateY+10+i*(railButtonH+railGap);roundRect(railX,y,railW-8,railButtonH,5,'#2d2d2d','#454545');text(label,railX+(railW-8)/2,y+railButtonH/2,label==='？'?13:8,'700','center','#f4f4f4');addHit(railX,y,railW-8,railButtonH,{type:'action',action});});
     if(state.helpVisible){
       roundRect(innerX+12,candidateY+18,innerW-24,candidateH-36,12,'#151515','#6b6b6b');
-      text('逐音輸入法  v0.1.48',innerX+30,candidateY+42,16,'700','left','#ffffff');
+      text('逐音輸入法  v0.1.49',innerX+30,candidateY+42,16,'700','left','#ffffff');
       text("Shift 切換中英；F9 繁簡；` Emoji；' 標點；Shift+1–0 / A–J 選字",innerX+30,candidateY+68,12,'500','left','#d0d0d0');
       text('Option：僅已學習候選顯示「刪除」，點選可移除',innerX+30,candidateY+90,12,'500','left','#d0d0d0');
       text('點右側 ？ 關閉說明',innerX+30,candidateY+112,12,'500','left','#d0d0d0');

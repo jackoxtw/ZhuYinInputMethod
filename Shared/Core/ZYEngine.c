@@ -20,6 +20,54 @@ static uint32_t utf8_cp(const char *s,size_t n){
     if(n>=4&&(p[0]&0xF8)==0xF0)return ((p[0]&7)<<18)|((p[1]&63)<<12)|((p[2]&63)<<6)|(p[3]&63); return 0;
 }
 static size_t codepoints(const char *s,size_t n){size_t c=0,i=0;while(i<n){size_t k=utf8_char_len((unsigned char)s[i]);if(i+k>n)break;i+=k;c++;}return c;}
+
+static int learned_continuation_compare(const ZYCandidate *a,const ZYCandidate *b){
+    size_t al=codepoints(a->word,strlen(a->word)),bl=codepoints(b->word,strlen(b->word));
+    if(al!=bl)return al<bl?-1:1;
+    return zy_candidate_rank_compare(a,b);
+}
+static int candidate_word_already_output(const ZYCandidate *out,size_t count,const char *word){
+    for(size_t i=0;i<count;i++)if(strcmp(out[i].word,word)==0)return 1;
+    return 0;
+}
+
+size_t zy_candidate_apply_length_policy(const ZYCandidate *in,size_t count,ZYCandidate *out,size_t cap){
+    if(!in||!out||!cap)return 0;
+    size_t en=0,ln=0;
+    for(size_t i=0;i<count;i++){
+        const ZYCandidate *c=&in[i];size_t wl=codepoints(c->word,strlen(c->word));
+        if(c->matched_chars>0&&wl==c->matched_chars)en++;
+        else if(c->learned&&c->matched_chars>0&&wl>c->matched_chars)ln++;
+    }
+    if(!en){size_t n=count<cap?count:cap;if(n)memcpy(out,in,n*sizeof(out[0]));return n;}
+    if(!ln){
+        size_t n=0;for(size_t i=0;i<count&&n<cap;i++){
+            size_t wl=codepoints(in[i].word,strlen(in[i].word));
+            if(in[i].matched_chars>0&&wl==in[i].matched_chars)out[n++]=in[i];
+        }
+        return n;
+    }
+    size_t reserve=(cap+2)/3;if(reserve<1)reserve=1;if(reserve>ln)reserve=ln;
+    size_t exact_cap=cap>reserve?cap-reserve:1;if(exact_cap>20)exact_cap=20;if(exact_cap>en)exact_cap=en;
+    size_t n=0;
+    for(size_t i=0;i<count&&n<exact_cap;i++){
+        size_t wl=codepoints(in[i].word,strlen(in[i].word));
+        if(in[i].matched_chars>0&&wl==in[i].matched_chars)out[n++]=in[i];
+    }
+    while(n<cap){
+        const ZYCandidate *best=NULL;
+        for(size_t i=0;i<count;i++){
+            const ZYCandidate *c=&in[i];size_t wl=codepoints(c->word,strlen(c->word));
+            if(!c->learned||!c->matched_chars||wl<=c->matched_chars)continue;
+            if(candidate_word_already_output(out,n,c->word))continue;
+            if(!best||learned_continuation_compare(c,best)<0)best=c;
+        }
+        if(!best)break;
+        out[n++]=*best;
+    }
+    return n;
+}
+
 static int is_tone_cp(uint32_t cp){return cp==0x02C9||cp==0x02CA||cp==0x02C7||cp==0x02CB||cp==0x02D9;}
 static size_t explicit_first_tone_len(const char *q,size_t qn,size_t pos){
     if(pos>=qn)return 0;size_t k=utf8_char_len((unsigned char)q[pos]);if(pos+k>qn)return 0;

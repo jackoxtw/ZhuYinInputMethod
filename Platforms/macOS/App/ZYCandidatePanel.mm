@@ -72,7 +72,7 @@
 
     NSRect bottom=self.helpBottomCloseRect;
     NSDictionary *versionAttrs=@{NSFontAttributeName:[NSFont monospacedSystemFontOfSize:11 weight:NSFontWeightMedium],NSForegroundColorAttributeName:[NSColor colorWithWhite:.55 alpha:1]};
-    [@"v0.1.48" drawAtPoint:NSMakePoint(24,NSMidY(bottom)-6) withAttributes:versionAttrs];
+    [@"v0.1.49" drawAtPoint:NSMakePoint(24,NSMidY(bottom)-6) withAttributes:versionAttrs];
     [[NSColor colorWithWhite:.25 alpha:1] setFill];
     [[NSBezierPath bezierPathWithRoundedRect:bottom xRadius:8 yRadius:8] fill];
     NSDictionary *buttonAttrs=@{NSFontAttributeName:[NSFont systemFontOfSize:13 weight:NSFontWeightSemibold],NSForegroundColorAttributeName:NSColor.whiteColor};

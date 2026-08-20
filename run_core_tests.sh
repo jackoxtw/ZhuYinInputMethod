@@ -7,12 +7,14 @@ mkdir -p "$TMP"
 $CC -std=c99 -O2 -D_POSIX_C_SOURCE=200809L -I Shared/Core Shared/Core/ZYDictionary.c Shared/Core/ZYEngine.c Shared/Tests/test_engine.c -o "$TMP/test_engine"
 $CC -std=c99 -O2 -D_POSIX_C_SOURCE=200809L -I Shared/Core Shared/Core/ZYLearning.c Shared/Tests/test_learning.c -o "$TMP/test_learning"
 $CC -std=c99 -O2 -D_POSIX_C_SOURCE=200809L -I Shared/Core Shared/Core/ZYDictionary.c Shared/Core/ZYEngine.c Shared/Tests/test_candidate_learning_ranking.c -o "$TMP/test_candidate_learning_ranking"
+$CC -std=c99 -O2 -D_POSIX_C_SOURCE=200809L -I Shared/Core Shared/Core/ZYDictionary.c Shared/Core/ZYEngine.c Shared/Tests/test_candidate_length_policy.c -o "$TMP/test_candidate_length_policy"
 $CC -std=c99 -O2 -D_POSIX_C_SOURCE=200809L -I Shared/Core Shared/Core/ZYDictionary.c Shared/Core/ZYEngine.c Shared/Core/ZYComposer.c Shared/Tests/test_composer.c -o "$TMP/test_composer"
 $CC -std=c99 -O2 -D_POSIX_C_SOURCE=200809L -I Shared/Core Shared/Core/ZYDictionary.c Shared/Core/ZYEngine.c Shared/Core/ZYComposer.c Shared/Tests/test_composer_workspace.c -o "$TMP/test_composer_workspace"
 $CC -std=c99 -O2 -I Shared/Core Shared/Core/ZYConversion.c Shared/Tests/test_conversion.c -o "$TMP/test_conversion"
 "$TMP/test_engine" Shared/Resources/dictionary.bin
 "$TMP/test_learning" "$TMP/learning"
 "$TMP/test_candidate_learning_ranking"
+"$TMP/test_candidate_length_policy"
 "$TMP/test_composer" Shared/Resources/dictionary.bin
 "$TMP/test_composer_workspace" Shared/Resources/dictionary.bin
 "$TMP/test_conversion" Shared/Resources/t2s.bin
@@ -25,6 +27,7 @@ if command -v python3 >/dev/null 2>&1; then
   python3 Tests/test_script_toggle_static.py
   python3 Tests/test_shortcuts_static.py
   python3 Tests/test_learning_ranking_static.py
+  python3 Tests/test_native_length_policy_static.py
   python3 Tests/test_composition_runtime_static.py
   python3 Tests/test_composition_controller_static.py
   python3 Tests/test_composition_build_static.py

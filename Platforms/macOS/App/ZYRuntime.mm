@@ -85,6 +85,7 @@ size_t ZYRuntimeLookup(const char *query,ZYCandidate *out,size_t cap){
         uint8_t learned_preference=zy_learning_query_preference_rank(&gLearning,qh,raw[i].id);
         if(learned_preference>raw[i].preference_rank)raw[i].preference_rank=learned_preference;
         uint32_t learned_count=zy_learning_word_count(&gLearning,raw[i].id);
+        raw[i].learned=(uint8_t)(learned_count>0);
         // A previously selected multi-syllable word that fully matches the
         // current query (possibly through initial abbreviations) gets a soft
         // recall preference. Exact same-query preference remains rank 2.
@@ -148,11 +149,20 @@ size_t ZYRuntimeLookup(const char *query,ZYCandidate *out,size_t cap){
 
     for(size_t i=0;i<ZY_LEARN_PHRASE_CAP&&n<192;i++){
         const ZYLearnPhrase *p=&gLearning.p.phrases[i];if(!p->used)continue;uint8_t mc=0,matched=0;int exact=0;int ok=p->pron[0]?zy_engine_match_pron_key(query,p->pron,&mc,&matched,&exact):(strcmp(query,p->query)==0);
-        if(!ok)continue;ZYCandidate c={0};c.id=0x80000000u|(uint32_t)i;c.user_phrase=1;c.match_class=mc?mc:5;c.matched_chars=matched;c.dictionary_exact=exact?1:0;c.preference_rank=1;c.score=7600000+(int32_t)zy_learning_phrase_frequency_bonus(p)+(int32_t)zy_learning_phrase_recency_bonus(&gLearning,p)+(exact?1200000:0);strlcpy(c.word,p->word,sizeof(c.word));tmp[n++]=c;
+        if(!ok)continue;ZYCandidate c={0};c.id=0x80000000u|(uint32_t)i;c.user_phrase=1;c.learned=1;c.match_class=mc?mc:5;c.matched_chars=matched;c.dictionary_exact=exact?1:0;c.preference_rank=1;c.score=7600000+(int32_t)zy_learning_phrase_frequency_bonus(p)+(int32_t)zy_learning_phrase_recency_bonus(&gLearning,p)+(exact?1200000:0);strlcpy(c.word,p->word,sizeof(c.word));tmp[n++]=c;
     }
     qsort(tmp,n,sizeof(tmp[0]),zy_candidate_rank_compare);
-    size_t m=0;for(size_t i=0;i<n&&m<cap;i++){BOOL dup=NO;for(size_t j=0;j<m;j++)if(strcmp(out[j].word,tmp[i].word)==0){dup=YES;break;}if(!dup)out[m++]=tmp[i];}
-    return m;
+    ZYCandidate deduped[192];size_t dn=0;
+    for(size_t i=0;i<n;i++){
+        BOOL dup=NO;
+        for(size_t j=0;j<dn;j++)if(strcmp(deduped[j].word,tmp[i].word)==0){
+            dup=YES;
+            if(!deduped[j].learned&&tmp[i].learned)deduped[j]=tmp[i];
+            break;
+        }
+        if(!dup&&dn<192)deduped[dn++]=tmp[i];
+    }
+    return zy_candidate_apply_length_policy(deduped,dn,out,cap);
     }
 }
 
