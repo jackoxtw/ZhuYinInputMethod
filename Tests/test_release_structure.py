@@ -29,6 +29,13 @@ assert 'OpenCC 1.3.1' in readme
 assert 'libchewing-data' in readme
 assert '/Library/Input Methods/逐音輸入法.app' in readme
 
+user_install = (ROOT / '一般使用者安裝說明.md').read_text(encoding='utf-8')
+release_note = (ROOT / 'Platforms' / 'macOS' / 'Packaging' / '說明.txt').read_text(encoding='utf-8')
+for instructions in [user_install, release_note]:
+    assert '強制打開' in instructions
+    assert '完成' in instructions
+    assert '系統設定 → 隱私權與安全性' in instructions
+
 root_html = list(ROOT.glob('*.html'))
 assert not root_html, f'legacy HTML must not stay in project root: {root_html}'
 legacy = ROOT / 'Docs' / 'Reference' / '台灣注音輸入法_Canvas_單檔版(20260812-065531).html'
