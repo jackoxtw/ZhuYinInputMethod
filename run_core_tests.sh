@@ -56,6 +56,7 @@ if command -v python3 >/dev/null 2>&1; then
   python3 Tests/test_idle_space_caps_shift_static.py
   python3 Tests/test_html_shift_english_static.py
   python3 Tests/test_html_special_candidates_static.py
+  python3 Tests/test_html_native_keyboard_parity_static.py
   python3 Tests/test_learned_abbreviation_recall_static.py
   python3 Tests/test_brand_word.py
   python3 Tests/test_brand_recall_static.py

@@ -156,7 +156,7 @@ class HtmlSpecialCandidatesStaticTests(unittest.TestCase):
 
     def test_special_grid_vertical_navigation_uses_ten_slots_only_in_special_mode(self):
         self.assertIn(
-            "const rowSize=state.specialMode?10:candidateColumns();",
+            "const rowSize=state.specialMode?10:Math.max(1,Math.floor(candidatePageSize()/2));",
             self.move_candidate_grid_block,
         )
         self.assertNotIn(
@@ -195,8 +195,7 @@ class HtmlSpecialCandidatesStaticTests(unittest.TestCase):
             self.assertIn(phrase, self.source)
         self.assertIn("會先送出已確認 pending 片段，再清除未確認 composition／一般候選並切換", self.source)
         self.assertIn("同樣保留已確認、取消未確認並直接輸入英文", self.source)
-        self.assertIn("未標聲調時補上第一聲 <kbd>ˉ</kbd>", self.source)
-        self.assertIn("已有聲調時會選取目前候選但不立即送出", self.source)
+        self.assertIn("Space 在一般中文模式下只處理一聲／分音，不會直接選一般候選", self.source)
         self.assertNotIn("可用滑鼠、<kbd>Enter</kbd>、<kbd>Space</kbd> 或 <kbd>Shift+1～0</kbd> / <kbd>Shift+A～J</kbd> 選字。", self.source)
         self.assertIn("取消未確認注音", self.source)
         self.assertNotIn("送出未確認中文", self.source)
