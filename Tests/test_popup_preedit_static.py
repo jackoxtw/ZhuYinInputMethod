@@ -86,10 +86,11 @@ def test_enter_never_commits_unresolved_zhuyin_as_literal_text():
     assert 'return YES' in body
 
 
-def test_forced_commit_discards_unresolved_zhuyin_instead_of_inserting_it():
+def test_commit_callback_never_auto_selects_unfinished_zhuyin():
     source = text(CONTROLLER)
     body = method_body(source, '- (void)commitComposition:(id)sender')
     unresolved = body[body.find('if(_composition.length)'):]
     assert '[client insertText:' not in unresolved
-    assert '[_composition setString:@""]' in unresolved
-    assert '[self updateMarked:client]' in unresolved
+    assert '[self chooseSelected:client]' not in unresolved
+    assert 'for(int guard=0;_composition.length&&guard<16;guard++)' not in unresolved
+    assert '[selfrefreshCandidates:client];return;' in unresolved.replace(' ', '')

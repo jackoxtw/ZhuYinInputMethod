@@ -335,27 +335,14 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
     id client=sender?:[self client];
     if(!client)return;
 
-    // A client can request an immediate composition commit (focus changes,
-    // navigation, etc.). Resolve the remaining Zhuyin through the currently
-    // selected candidates first so staged text is not lost.
-    for(int guard=0;_composition.length&&guard<16;guard++){
-        if(!_candidateCount)[self refreshCandidates:client];
-        NSUInteger before=_composition.length;
-        if(!_candidateCount||![self chooseSelected:client]||_composition.length>=before)break;
-    }
+    // Browsers can issue this callback for the same Return that is being used
+    // to select a candidate.  Never turn that callback into an implicit
+    // "select everything" command: unresolved Zhuyin stays in the popup for
+    // the user to choose explicitly.
+    if(_composition.length){[self refreshCandidates:client];return;}
     if(_pieceCount){
         [self learnAndCommit:client];
         return;
-    }
-
-    // Unresolved phonetics are an IME-internal buffer, not document text.
-    // On a forced commit (focus change/navigation), discard that unfinished
-    // reading instead of ever inserting raw Bopomofo into the client.
-    if(_composition.length){
-        [_composition setString:@""];
-        _candidateCount=0;_selected=0;_pageStart=0;
-        [self hideCandidatePanel];
-        [self updateMarked:client];
     }
 }
 

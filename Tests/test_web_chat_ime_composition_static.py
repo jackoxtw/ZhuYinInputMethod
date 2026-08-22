@@ -87,7 +87,7 @@ def test_commit_clears_marked_text_through_same_direct_client_path():
     assert '[self updateComposition]' not in body
 
     body = method_body(text, '- (void)commitComposition:(id)sender')
-    assert '[self updateMarked:client]' in body
+    assert '[self refreshCandidates:client];return;' in body
     assert '[self updateComposition]' not in body
 
 
