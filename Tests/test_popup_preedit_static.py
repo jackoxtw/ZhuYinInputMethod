@@ -26,12 +26,12 @@ def method_body(source: str, signature: str):
     raise AssertionError(f'unclosed method {signature}')
 
 
-def test_unfinished_zhuyin_is_not_published_as_inline_marked_text():
+def test_all_pending_text_is_kept_out_of_inline_marked_text():
     source = text(CONTROLLER)
     body = method_body(source, '- (void)updateMarked:(id)client')
     assert 'inlineMarkedText' in body
     helper = method_body(source, '- (NSString *)inlineMarkedText')
-    assert 'piecesText' in helper
+    assert 'piecesText' not in helper
     assert 'preeditText' not in helper
     assert '@"\\u2060"' in helper
 
@@ -55,13 +55,12 @@ def test_popup_preedit_is_drawn_above_candidate_rows():
     assert 'y0=self.preeditHeaderHeight+6' in panel
 
 
-def test_panel_stays_visible_for_unresolved_zhuyin_even_without_candidates():
+def test_panel_shows_all_pending_text_even_without_candidates():
     source = text(CONTROLLER)
     body = method_body(source, '- (void)refreshPanel:(id)client')
-    assert '_composition.length' in body
+    assert 'NSString *preedit=[self preeditText];' in body
     assert 'setPreeditText:' in body
-    assert '_composition' in body
-    assert '!_candidateCount&&!_composition.length' in body.replace(' ', '')
+    assert '!_candidateCount&&!preedit.length' in body.replace(' ', '')
 
 
 def test_caret_lookup_does_not_index_by_hidden_zhuyin_length():

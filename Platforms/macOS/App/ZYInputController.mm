@@ -109,11 +109,11 @@ static void flushLearningRun(char *word,size_t wordCap,char *query,size_t queryC
 }
 - (NSString *)preeditText { NSMutableString *s=[[self piecesText] mutableCopy]; if(_composition.length)[s appendString:_composition]; return s; }
 - (NSString *)inlineMarkedText {
-    NSMutableString *s=_chinese?[[self piecesText] mutableCopy]:[NSMutableString string];
-    // Unresolved Zhuyin is deliberately kept out of the client document.  A
-    // zero-width word joiner keeps IMK/Chromium in composition mode without
-    // showing phonetic symbols beside the web caret.
-    if(_chinese&&!s.length&&(_composition.length||_specialMode!=ZYSpecialCandidateNone))[s appendString:@"\u2060"];
+    NSMutableString *s=[NSMutableString string];
+    // Every pending item is rendered by the candidate panel, never by the
+    // client document.  The invisible marker keeps IMK/Chromium in composition
+    // mode without letting web chat handlers read staged Chinese as sendable text.
+    if(_chinese&&(_pieceCount||_composition.length||_specialMode!=ZYSpecialCandidateNone))[s appendString:@"\u2060"];
     return s;
 }
 static BOOL ZYUsableCaretRect(NSRect rect) {
@@ -238,9 +238,10 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
     [self refreshPanel:client];
 }
 - (void)refreshPanel:(id)client {
-    if(!_chinese||(!_candidateCount&&!_composition.length)){[self hideCandidatePanel];return;}
+    NSString *preedit=[self preeditText];
+    if(!_chinese||(!_candidateCount&&!preedit.length)){[self hideCandidatePanel];return;}
     ZYCandidatePanel *panel=[self ensureCandidatePanel];
-    [panel setPreeditText:_specialMode==ZYSpecialCandidateNone?_composition:@""];
+    [panel setPreeditText:_specialMode==ZYSpecialCandidateNone?preedit:@""];
     NSUInteger pageSize=ZYSpecialPageSize(_specialMode);_pageStart=(_selected/pageSize)*pageSize;if(!_candidateCount)_pageStart=0;NSUInteger count=_candidateCount?MIN(pageSize,_candidateCount-_pageStart):0;
     if(_specialMode!=ZYSpecialCandidateNone){
         NSArray<NSString*> *all=ZYSpecialCandidates(_specialMode);

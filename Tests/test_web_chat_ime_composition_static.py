@@ -34,7 +34,7 @@ def test_marked_text_is_published_directly_to_client_on_every_preedit_update():
     assert '[client setMarkedText:' in body
     assert 'inlineMarkedText' in body
     helper = method_body(text, '- (NSString *)inlineMarkedText')
-    assert 'piecesText' in helper
+    assert 'piecesText' not in helper
     assert 'preeditText' not in helper
     assert '[self updateComposition]' not in body
 

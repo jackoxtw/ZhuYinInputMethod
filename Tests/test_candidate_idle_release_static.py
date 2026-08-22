@@ -33,5 +33,5 @@ assert '_cv.rows=2' in order
 assert '[self resizeForRows:2]' not in order
 
 # Normal hide sites should use the delayed lifecycle helper, not bare orderOut.
-assert 'if(!_chinese||(!_candidateCount&&!_composition.length)){[self hideCandidatePanel];return;}' in c
+assert 'if(!_chinese||(!_candidateCount&&!preedit.length)){[self hideCandidatePanel];return;}' in c
 print('candidate idle release static: OK')
