@@ -56,6 +56,7 @@ static void flushLearningRun(char *word,size_t wordCap,char *query,size_t queryC
     BOOL _panelReleaseScheduled;
     NSRect _lastCaretRect;
     BOOL _chinese,_simplified,_shiftDown,_shiftAlone,_optionDown;
+    BOOL _handledKeyDown[256];
     ZYSpecialCandidateMode _specialMode;
 }
 
@@ -99,7 +100,7 @@ static void flushLearningRun(char *word,size_t wordCap,char *query,size_t queryC
 }
 - (void)inputControllerWillClose { [self releaseCandidatePanel]; ZYRuntimeMaybeFlush(); [super inputControllerWillClose]; }
 - (void)deactivateServer:(id)sender { [self releaseCandidatePanel]; [super deactivateServer:sender]; }
-- (NSUInteger)recognizedEvents:(id)sender { (void)sender; return NSEventMaskKeyDown|NSEventMaskFlagsChanged; }
+- (NSUInteger)recognizedEvents:(id)sender { (void)sender; return NSEventMaskKeyDown|NSEventMaskKeyUp|NSEventMaskFlagsChanged; }
 
 - (NSString *)piecesText {
     NSMutableString *s=[NSMutableString string];
@@ -107,6 +108,14 @@ static void flushLearningRun(char *word,size_t wordCap,char *query,size_t queryC
     return s;
 }
 - (NSString *)preeditText { NSMutableString *s=[[self piecesText] mutableCopy]; if(_composition.length)[s appendString:_composition]; return s; }
+- (NSString *)inlineMarkedText {
+    NSMutableString *s=_chinese?[[self piecesText] mutableCopy]:[NSMutableString string];
+    // Unresolved Zhuyin is deliberately kept out of the client document.  A
+    // zero-width word joiner keeps IMK/Chromium in composition mode without
+    // showing phonetic symbols beside the web caret.
+    if(_chinese&&!s.length&&(_composition.length||_specialMode!=ZYSpecialCandidateNone))[s appendString:@"\u2060"];
+    return s;
+}
 static BOOL ZYUsableCaretRect(NSRect rect) {
     return isfinite(rect.origin.x) && isfinite(rect.origin.y) &&
            isfinite(rect.size.width) && isfinite(rect.size.height) &&
@@ -121,20 +130,25 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
         // fallback instead of scanning backward through the whole preedit string.
         if([client respondsToSelector:@selector(attributesForCharacterIndex:lineHeightRectangle:)]) {
             id<IMKTextInput> textClient=(id<IMKTextInput>)client;
-            NSInteger cursor=(NSInteger)[self preeditText].length;
-            if(cursor>0) cursor--;
-            if(cursor>=0) {
-                NSRect lineRect=NSZeroRect;
-                @try {
+            NSInteger cursor=NSNotFound;
+            @try {
+                if([client respondsToSelector:@selector(markedRange)]) {
+                    NSRange marked=[client markedRange];
+                    if(marked.location!=NSNotFound&&marked.length)cursor=(NSInteger)NSMaxRange(marked)-1;
+                }
+                if(cursor==NSNotFound&&[client respondsToSelector:@selector(selectedRange)]) {
+                    NSRange selected=[client selectedRange];
+                    if(selected.location!=NSNotFound){cursor=(NSInteger)selected.location;if(cursor>0) cursor--;}
+                }
+                if(cursor>=0&&cursor!=NSNotFound) {
+                    NSRect lineRect=NSZeroRect;
                     [textClient attributesForCharacterIndex:(NSUInteger)cursor lineHeightRectangle:&lineRect];
-                } @catch(__unused NSException *e) {
-                    lineRect=NSZeroRect;
+                    if(ZYUsableCaretRect(lineRect)){
+                        _lastCaretRect=lineRect;
+                        return lineRect;
+                    }
                 }
-                if(ZYUsableCaretRect(lineRect)){
-                    _lastCaretRect=lineRect;
-                    return lineRect;
-                }
-            }
+            } @catch(__unused NSException *e) {}
         }
 
         // Document-relative ranges are a compatibility fallback.  IMKTextInput
@@ -170,12 +184,51 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
         return NSMakeRect(NSMidX(vis),NSMidY(vis),1,20);
     }
 }
+- (id)composedString:(id)sender {
+    (void)sender;
+    return [self inlineMarkedText];
+}
+- (NSAttributedString *)originalString:(id)sender {
+    (void)sender;
+    return [[NSAttributedString alloc] initWithString:[self inlineMarkedText]];
+}
 - (void)updateMarked:(id)client {
-    if(!_chinese)return;
+    if(!client)return;
     @autoreleasepool {
-        NSString *s=[self preeditText];
-        [client setMarkedText:s selectionRange:NSMakeRange(s.length,0) replacementRange:NSMakeRange(NSNotFound,NSNotFound)];
+        NSString *text=[self inlineMarkedText];
+        NSAttributedString *marked=text.length
+            ? [[NSAttributedString alloc] initWithString:text attributes:@{NSUnderlineStyleAttributeName:@(NSUnderlineStyleSingle)}]
+            : [[NSAttributedString alloc] initWithString:@""];
+        [client setMarkedText:marked
+               selectionRange:NSMakeRange(marked.length,0)
+             replacementRange:NSMakeRange(NSNotFound,NSNotFound)];
     }
+}
+
+// Keep the client's marked-text state synchronous with the internal preedit.
+// Chromium/WebKit use this state to expose IME-handled Return as ProcessKey
+// instead of an ordinary Enter-to-submit event.
+- (void)publishMarkedText:(id)client {
+    [self updateMarked:client];
+}
+
+- (BOOL)consumeReturnWhileComposing:(id)client {
+    BOOL active=_specialMode!=ZYSpecialCandidateNone||_composition.length||_pieceCount||_candidateCount;
+    if(!active)return NO;
+
+    // Keep the client in IME mode, but never expose unresolved Zhuyin as client
+    // text. Return resolves dictionary candidates into staged Chinese output;
+    // invalid/incomplete phonetics stay in the popup and are never inserted.
+    [self publishMarkedText:client];
+    if(_specialMode!=ZYSpecialCandidateNone)[self chooseSelected:client];
+    for(int guard=0;_composition.length&&guard<16;guard++){
+        if(!_candidateCount)[self refreshCandidates:client];
+        NSUInteger before=_composition.length;
+        if(!_candidateCount||![self chooseSelected:client]||_composition.length>=before)break;
+    }
+    if(_pieceCount){[self learnAndCommit:client];return YES;}
+    if(_composition.length){NSBeep();[self refreshPanel:client];return YES;}
+    return YES;
 }
 
 - (void)refreshCandidates:(id)client {
@@ -187,9 +240,10 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
     [self refreshPanel:client];
 }
 - (void)refreshPanel:(id)client {
-    if(!_chinese||!_candidateCount){[self hideCandidatePanel];return;}
+    if(!_chinese||(!_candidateCount&&!_composition.length)){[self hideCandidatePanel];return;}
     ZYCandidatePanel *panel=[self ensureCandidatePanel];
-    NSUInteger pageSize=ZYSpecialPageSize(_specialMode);_pageStart=(_selected/pageSize)*pageSize;NSUInteger count=MIN(pageSize,_candidateCount-_pageStart);
+    [panel setPreeditText:_specialMode==ZYSpecialCandidateNone?_composition:@""];
+    NSUInteger pageSize=ZYSpecialPageSize(_specialMode);_pageStart=(_selected/pageSize)*pageSize;if(!_candidateCount)_pageStart=0;NSUInteger count=_candidateCount?MIN(pageSize,_candidateCount-_pageStart):0;
     if(_specialMode!=ZYSpecialCandidateNone){
         NSArray<NSString*> *all=ZYSpecialCandidates(_specialMode);
         NSArray<NSString*> *page=[all subarrayWithRange:NSMakeRange(_pageStart,count)];
@@ -270,7 +324,40 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
     }
     flushLearningRun(runWord,sizeof(runWord),runQuery,sizeof(runQuery),runPron,sizeof(runPron),&runPieces);
     NSString *text=[self piecesText];NSString *output=ZYRuntimeOutputString(text,_simplified);[client insertText:output replacementRange:NSMakeRange(NSNotFound,NSNotFound)];
-    _pieceCount=0;[_composition setString:@""];_candidateCount=0;_selected=0;[self hideCandidatePanel];ZYRuntimeMaybeFlush();
+    _pieceCount=0;[_composition setString:@""];_candidateCount=0;_selected=0;[self hideCandidatePanel];
+    // Explicitly publish the empty composition after insertText:.  This mirrors
+    // established IMK input methods and gives browser clients a clean
+    // compositionend boundary before the user's next Enter key.
+    [self updateMarked:client];
+    ZYRuntimeMaybeFlush();
+}
+
+- (void)commitComposition:(id)sender {
+    id client=sender?:[self client];
+    if(!client)return;
+
+    // A client can request an immediate composition commit (focus changes,
+    // navigation, etc.). Resolve the remaining Zhuyin through the currently
+    // selected candidates first so staged text is not lost.
+    for(int guard=0;_composition.length&&guard<16;guard++){
+        if(!_candidateCount)[self refreshCandidates:client];
+        NSUInteger before=_composition.length;
+        if(!_candidateCount||![self chooseSelected:client]||_composition.length>=before)break;
+    }
+    if(_pieceCount){
+        [self learnAndCommit:client];
+        return;
+    }
+
+    // Unresolved phonetics are an IME-internal buffer, not document text.
+    // On a forced commit (focus change/navigation), discard that unfinished
+    // reading instead of ever inserting raw Bopomofo into the client.
+    if(_composition.length){
+        [_composition setString:@""];
+        _candidateCount=0;_selected=0;_pageStart=0;
+        [self hideCandidatePanel];
+        [self updateMarked:client];
+    }
 }
 
 - (void)toggleLanguage:(id)client {
@@ -283,7 +370,7 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
     }
     _chinese=!_chinese;_shiftAlone=NO;_specialMode=ZYSpecialCandidateNone;_candidateCount=0;
     if(_chinese){[self updateMarked:client];[self refreshCandidates:client];}
-    else{[client setMarkedText:@"" selectionRange:NSMakeRange(0,0) replacementRange:NSMakeRange(NSNotFound,NSNotFound)];[self hideCandidatePanel];}
+    else{[self updateMarked:client];[self hideCandidatePanel];}
 }
 - (void)toggleScript:(id)client {_simplified=!_simplified;[[NSUserDefaults standardUserDefaults] setBool:_simplified forKey:ZYOutputSimplifiedKey];[self refreshPanel:client];}
 
@@ -303,6 +390,25 @@ static BOOL ZYCompositionNeedsFirstTone(NSString *composition){
 static NSString *chinesePunctuation(unsigned short k,BOOL shift){if(!shift){if(k==33)return @"「";if(k==30)return @"」";return nil;}switch(k){case 43:return @"，";case 47:return @"。";case 44:return @"？";case 18:return @"！";case 41:return @"：";case 39:return @"；";case 42:return @"、";case 25:return @"（";case 29:return @"）";case 33:return @"「";case 30:return @"」";case 50:return @"『";case 24:return @"』";case 28:return @"…";case 27:return @"—";default:return nil;}}
 
 - (BOOL)handleEvent:(NSEvent *)event client:(id)client {
+    if(!event)return NO;
+    if(event.type==NSEventTypeKeyUp){
+        NSUInteger key=(NSUInteger)event.keyCode;
+        if(key<256&&_handledKeyDown[key]){
+            _handledKeyDown[key]=NO;
+            return YES;
+        }
+        return NO;
+    }
+
+    BOOL handled=[self handleInputEvent:event client:client];
+    if(event.type==NSEventTypeKeyDown&&handled){
+        NSUInteger key=(NSUInteger)event.keyCode;
+        if(key<256)_handledKeyDown[key]=YES;
+    }
+    return handled;
+}
+
+- (BOOL)handleInputEvent:(NSEvent *)event client:(id)client {
     if(event.type==NSEventTypeFlagsChanged&&(event.keyCode==58||event.keyCode==61)){
         BOOL down=(event.modifierFlags&NSEventModifierFlagOption)!=0;
         if(_optionDown!=down){_optionDown=down;[_panel setDeleteMode:down];}
@@ -378,9 +484,8 @@ static NSString *chinesePunctuation(unsigned short k,BOOL shift){if(!shift){if(k
             if(!_pieceCount&&_candidateCount==0){[client insertText:@" " replacementRange:NSMakeRange(NSNotFound,NSNotFound)];return YES;}
             [self appendPunctuation:@" " client:client];return YES;
         case 36:
-            if(_specialMode!=ZYSpecialCandidateNone)return [self chooseSelected:client];
-            if(_composition.length){if(_candidateCount)[self chooseSelected:client];return YES;}
-            if(_pieceCount){[self learnAndCommit:client];return YES;}return NO;
+        case 76:
+            return [self consumeReturnWhileComposing:client];
         default: break;
     }
     NSString *z=zhuyinForKeyCode(event.keyCode);if(z){if(_specialMode!=ZYSpecialCandidateNone)_specialMode=ZYSpecialCandidateNone;[_composition appendString:z];[self updateMarked:client];[self refreshCandidates:client];return YES;}

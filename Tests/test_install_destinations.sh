@@ -19,7 +19,11 @@ rg -Fq 'ICON_SOURCE="$PWD/icon/icon.png"' "$INSTALLER" || fail 'installer must u
 rg -Fq 'iconutil -c icns "$ICONSET" -o "$ICON_ICNS"' "$INSTALLER" || fail 'installer must create AppIcon.icns'
 rg -Fq 'cp "$ICON_ICNS" "$RES/AppIcon.icns"' "$INSTALLER" || fail 'installer must bundle AppIcon.icns'
 rg -Fq '<key>CFBundleIconFile</key><string>AppIcon.icns</string>' "$PLIST" || fail 'Info.plist must define AppIcon.icns as the app icon'
-[[ $(rg -F '<string>AppIcon.icns</string>' "$PLIST" | wc -l | tr -d ' ') -eq 4 ]] || fail 'all input-method icon references must use AppIcon.icns'
+ICON_REFS=$(rg -o '<string>[^<]+\.icns</string>' "$PLIST" || true)
+[[ -n "$ICON_REFS" ]] || fail 'Info.plist must contain input-method icon references'
+if printf '%s\n' "$ICON_REFS" | rg -v -F '<string>AppIcon.icns</string>' >/dev/null; then
+  fail 'all input-method icon references must use AppIcon.icns'
+fi
 XATTR_LINE=$(rg -n -F 'xattr -cr "$APP"' "$INSTALLER" | cut -d: -f1)
 SIGN_LINE=$(rg -n -F '/usr/bin/codesign --force --deep --sign - "$APP"' "$INSTALLER" | cut -d: -f1)
 SIGN_XATTR_LINE=$(printf '%s\n' "$XATTR_LINE" | awk -v sign="$SIGN_LINE" '$1 < sign {line=$1} END {print line}')

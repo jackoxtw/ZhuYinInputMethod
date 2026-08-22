@@ -2,6 +2,51 @@
 
 本文件記錄逐音輸入法的版本更新。最新版本請見 [README](README.md)。
 
+## v0.1.55 / build 58
+
+### 浮動注音組字列編譯修正
+
+- 修正 `ZYCandidatePanel.mm` 將 `preeditHeaderHeight` 誤加入 `ZYHelpView` 與 `ZYClearLearningView`，造成兩個類別引用不存在的 `preeditText` 屬性而無法編譯。
+- `preeditText` 與 `preeditHeaderHeight` 現在只由真正的 `ZYCandidateView` 持有與使用。
+- 新增類別邊界回歸檢查，避免候選組字列專用方法再次被誤插到說明／清除學習 View。
+
+## v0.1.54 / build 57
+
+### 浮動注音組字列／網頁聊天防誤送
+
+- 未完成的注音讀音不再放進應用程式的可見 marked text；例如 `ㄋㄧㄏㄠㄚˉ` 只顯示在逐音候選窗上方的「注音」列。
+- 文字游標端只保留不可見的 IME placeholder，讓 InputMethodKit／Chromium 繼續知道輸入法正在組字，但網頁 DOM 不再持有可見注音符號。
+- 候選窗即使暫時沒有字詞候選，只要仍有未完成注音就會保持顯示，避免使用者看不到目前讀音。
+- Return／Enter 只會解析候選並提交確認後的中文；無法解析的殘缺注音不再 fallback 成普通注音文字送進網頁。
+- 系統因切換焦點等原因要求強制結束組字時，無法解析的殘缺注音會被丟棄，不會以注音符號插入目標欄位。
+- 候選窗定位改以客體的 marked/selected range 取得游標位置，不再以隱藏注音字串長度估算 character index。
+
+## v0.1.53 / build 56
+
+- 修正網頁聊天中，組字期間按 Return/Enter 仍會觸發送出的問題。
+- 組字文字改為直接同步寫入 IMKTextInput `setMarkedText:`，不再依賴 `updateComposition` 間接更新。
+- 新增 KeyUp 事件接收；輸入法已處理的 KeyDown 會連同對應 KeyUp 一起攔截。
+- Return/Enter 改為同步確認組字，並在事件處理前再次發布 marked text。
+
+## v0.1.52 / build 55
+
+### 網頁聊天室 Return 防漏事件修正
+
+- 修正 v0.1.51 僅調整 composition lifecycle 仍不足以阻止部分 Chromium／WebKit 聊天欄收到同一次 `Enter` 的問題。
+- 在組字、候選、已確認片段或 Emoji／標點候選仍存在時，Return 當下會同步重新發布非空 marked text，讓瀏覽器把該鍵維持在 IME composing／ProcessKey 路徑。
+- 真正的候選解析與 `insertText:` 提交延後到目前 native keydown 完整結束後執行，避免 composition 在瀏覽器建立 DOM 鍵盤事件前被提前清除。
+- 主鍵盤 Return（key code 36）與數字鍵盤 Enter（key code 76）統一走同一條安全提交路徑。
+- 行為調整為：第一次 Enter 完成並提交目前中文組字，但不交給聊天室；組字已完全清空後，下一次 Enter 才正常交給網頁送出。
+
+## v0.1.51 / build 54
+
+### 網頁聊天 Enter／IME 組字修正
+
+- macOS 正式版改用 `IMKInputController` 的 `composedString:` + `updateComposition` 維持系統組字生命週期，不再由 `updateMarked:` 直接呼叫 client 的 `setMarkedText:`。
+- 候選字仍在組字期間時，第一次 `Enter` 只確認目前候選並維持 marked composition；完成組字後再次 `Enter` 才交由網頁聊天室作一般送出。
+- 新增 `commitComposition:`，處理瀏覽器／應用程式主動要求結束組字時的候選解析、提交與清理，並在提交後明確發布空 composition，避免下一個 Enter 與前一個 IME session 混在一起。
+- 保留 `updateMarked:` 的局部 `@autoreleasepool` 記憶體最佳化。
+
 ## v0.1.50 / build 53
 
 ### Gatekeeper 安裝指引

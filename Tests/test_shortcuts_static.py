@@ -45,7 +45,8 @@ assert 'rows=MIN((NSUInteger)5,MAX((NSUInteger)1,(count+9)/10));' in panel.repla
 assert 'maxChars<=2?10:(maxChars<=5?5:4)' in panel.replace(' ', ''), 'normal candidates must use adaptive 10/5/4-column layout'
 assert '_cv.rowHeight=columns==10?38:(columns==5?48:58);' in panel.replace(' ', ''), 'adaptive normal layout must use readable row heights'
 assert 'row<self.rows' in panel, 'mouse hit testing must support all visible special rows'
-assert '12.0+_cv.rowHeight*rows' in panel.replace(' ', ''), 'panel content height must grow with active row height'
+compact=panel.replace(' ', '')
+assert '12.0+_cv.preeditHeaderHeight+_cv.rowHeight*rows' in compact, 'panel content height must grow with popup preedit header and active row height'
 assert '_cv.columns=10;_cv.rowHeight=38;' in panel.replace(' ', ''), 'Emoji/punctuation mode must keep the existing ten-column compact grid'
 
 # Script button keeps its main 繁/簡 label and advertises the F9 shortcut unobtrusively.

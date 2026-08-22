@@ -1190,7 +1190,7 @@
     rail.forEach(([label,action],i)=>{const y=candidateY+10+i*(railButtonH+railGap);roundRect(railX,y,railW-8,railButtonH,5,'#2d2d2d','#454545');text(label,railX+(railW-8)/2,y+railButtonH/2,label==='？'?13:8,'700','center','#f4f4f4');addHit(railX,y,railW-8,railButtonH,{type:'action',action});});
     if(state.helpVisible){
       roundRect(innerX+12,candidateY+18,innerW-24,candidateH-36,12,'#151515','#6b6b6b');
-      text('逐音輸入法  v0.1.50',innerX+30,candidateY+42,16,'700','left','#ffffff');
+      text('逐音輸入法  v0.1.55',innerX+30,candidateY+42,16,'700','left','#ffffff');
       text("Shift 切換中英；F9 繁簡；` Emoji；' 標點；Shift+1–0 / A–J 選字",innerX+30,candidateY+68,12,'500','left','#d0d0d0');
       text('Option：僅已學習候選顯示「刪除」，點選可移除',innerX+30,candidateY+90,12,'500','left','#d0d0d0');
       text('點右側 ？ 關閉說明',innerX+30,candidateY+112,12,'500','left','#d0d0d0');

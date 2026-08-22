@@ -25,6 +25,7 @@ order_end = p.find('- (void)showNearRect:', order_start)
 order = p[order_start:order_end]
 assert '_cv.words=@[]' in order
 assert '_cv.modeLabel=@""' in order
+assert '_cv.preeditText=@""' in order
 assert '_cv.count=0' in order
 assert '_cv.columns=10' in order
 assert '_cv.rowHeight=38' in order
@@ -32,5 +33,5 @@ assert '_cv.rows=2' in order
 assert '[self resizeForRows:2]' not in order
 
 # Normal hide sites should use the delayed lifecycle helper, not bare orderOut.
-assert 'if(!_chinese||!_candidateCount){[self hideCandidatePanel];return;}' in c
+assert 'if(!_chinese||(!_candidateCount&&!_composition.length)){[self hideCandidatePanel];return;}' in c
 print('candidate idle release static: OK')
