@@ -217,17 +217,15 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
     if(!active)return NO;
 
     // Keep the client in IME mode, but never expose unresolved Zhuyin as client
-    // text. Return resolves dictionary candidates into staged Chinese output;
-    // invalid/incomplete phonetics stay in the popup and are never inserted.
+    // text.  Return accepts only the currently highlighted candidate while
+    // phonetics remain; a later Return commits the fully chosen result.
     [self publishMarkedText:client];
-    if(_specialMode!=ZYSpecialCandidateNone)[self chooseSelected:client];
-    for(int guard=0;_composition.length&&guard<16;guard++){
-        if(!_candidateCount)[self refreshCandidates:client];
-        NSUInteger before=_composition.length;
-        if(!_candidateCount||![self chooseSelected:client]||_composition.length>=before)break;
+    if(_specialMode!=ZYSpecialCandidateNone)return [self chooseSelected:client];
+    if(_composition.length){
+        if(_candidateCount)return [self chooseSelected:client];
+        NSBeep();[self refreshPanel:client];return YES;
     }
     if(_pieceCount){[self learnAndCommit:client];return YES;}
-    if(_composition.length){NSBeep();[self refreshPanel:client];return YES;}
     return YES;
 }
 

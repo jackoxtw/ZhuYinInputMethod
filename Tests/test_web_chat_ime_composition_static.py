@@ -68,6 +68,18 @@ def test_enter_uses_same_immediate_ime_commit_path_for_main_and_keypad_return():
     assert 'return YES' in body
 
 
+def test_enter_selects_only_one_candidate_while_zhuyin_remains():
+    text = source()
+    body = method_body(text, '- (BOOL)consumeReturnWhileComposing:(id)client')
+    compact = re.sub(r'\s+', '', body)
+
+    # Return must not consume all remaining syllables and immediately commit
+    # them.  While raw Zhuyin remains, it only accepts the highlighted item.
+    assert 'for(intguard=0;_composition.length&&guard<16;guard++)' not in compact
+    assert 'if(_composition.length){if(_candidateCount)return[selfchooseSelected:client];' in compact
+    assert 'if(_pieceCount){[selflearnAndCommit:client];returnYES;}' in compact
+
+
 def test_commit_clears_marked_text_through_same_direct_client_path():
     text = source()
     body = method_body(text, '- (void)learnAndCommit:(id)client')
@@ -77,3 +89,10 @@ def test_commit_clears_marked_text_through_same_direct_client_path():
     body = method_body(text, '- (void)commitComposition:(id)sender')
     assert '[self updateMarked:client]' in body
     assert '[self updateComposition]' not in body
+
+
+if __name__ == '__main__':
+    for name in sorted(globals()):
+        if name.startswith('test_'):
+            globals()[name]()
+    print('test_web_chat_ime_composition_static: OK')
