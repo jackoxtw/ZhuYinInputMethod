@@ -37,7 +37,7 @@ assert block.index("state.composition=''") < block.index('handleEnglishChar(e.ke
 
 # Chinese mode refreshes Caps Lock; single Shift remains controlled only on key release.
 caps_refresh = "if(typeof e.getModifierState==='function') state.capsLock=!!e.getModifierState('CapsLock');"
-assert caps_refresh in html and html.index(caps_refresh) < start, \
+assert caps_refresh in html and html.index(caps_refresh, start - 1200) < start, \
     'Chinese mode must refresh the current Caps Lock state before Shift English'
 keyup_start = html.index("window.addEventListener('keyup',e=>")
 keyup_block = html[keyup_start:html.index("window.addEventListener('resize'", keyup_start)]

@@ -26,6 +26,7 @@ if command -v python3 >/dev/null 2>&1; then
   python3 Tests/test_caret_o1_static.py
   python3 Tests/test_popup_preedit_static.py
   python3 Tests/test_web_chat_ime_composition_static.py
+  python3 Tests/test_html_enter_flow_native_port_static.py
   python3 Tests/test_current_version_static.py
   python3 Tests/test_script_toggle_static.py
   python3 Tests/test_shortcuts_static.py

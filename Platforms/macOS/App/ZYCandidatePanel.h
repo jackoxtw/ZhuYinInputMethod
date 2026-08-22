@@ -16,6 +16,8 @@
 - (void)updateCandidates:(const ZYCandidate *)items deletable:(const BOOL *)deletable count:(NSUInteger)count selected:(NSUInteger)selected chinese:(BOOL)chinese simplified:(BOOL)simplified;
 - (void)updateWords:(NSArray<NSString*> *)words count:(NSUInteger)count selected:(NSUInteger)selected chinese:(BOOL)chinese simplified:(BOOL)simplified modeLabel:(NSString *)modeLabel;
 - (void)setPreeditText:(NSString *)text;
+- (void)setZhuyinText:(NSString *)text;
+- (void)setPreeditLabel:(NSString *)label;
 - (void)setDeleteMode:(BOOL)enabled;
 - (void)showNearRect:(NSRect)rect;
 - (void)toggleQuickHelp;

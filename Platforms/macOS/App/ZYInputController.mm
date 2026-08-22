@@ -99,7 +99,7 @@ static void flushLearningRun(char *word,size_t wordCap,char *query,size_t queryC
     });
 }
 - (void)inputControllerWillClose { [self releaseCandidatePanel]; ZYRuntimeMaybeFlush(); [super inputControllerWillClose]; }
-- (void)deactivateServer:(id)sender { [self releaseCandidatePanel]; [super deactivateServer:sender]; }
+- (void)deactivateServer:(id)sender { memset(_handledKeyDown,0,sizeof(_handledKeyDown)); [self releaseCandidatePanel]; [super deactivateServer:sender]; }
 - (NSUInteger)recognizedEvents:(id)sender { (void)sender; return NSEventMaskKeyDown|NSEventMaskKeyUp|NSEventMaskFlagsChanged; }
 
 - (NSString *)piecesText {
@@ -109,12 +109,13 @@ static void flushLearningRun(char *word,size_t wordCap,char *query,size_t queryC
 }
 - (NSString *)preeditText { NSMutableString *s=[[self piecesText] mutableCopy]; if(_composition.length)[s appendString:_composition]; return s; }
 - (NSString *)inlineMarkedText {
-    NSMutableString *s=[NSMutableString string];
-    // Every pending item is rendered by the candidate panel, never by the
-    // client document.  The invisible marker keeps IMK/Chromium in composition
-    // mode without letting web chat handlers read staged Chinese as sendable text.
-    if(_chinese&&(_pieceCount||_composition.length||_specialMode!=ZYSpecialCandidateNone))[s appendString:@"\u2060"];
-    return s;
+    if(!_chinese)return @"";
+    // Match the tested HTML flow: neither selected pending text nor unfinished
+    // Zhuyin is exposed as visible client text.  Keep only an invisible marker
+    // while the IME owns an unfinished/staged composition so web editors keep
+    // treating Return as an IME event.
+    BOOL active=_pieceCount||_composition.length||_candidateCount||_specialMode!=ZYSpecialCandidateNone;
+    return active?@"\u2060":@"";
 }
 static BOOL ZYUsableCaretRect(NSRect rect) {
     return isfinite(rect.origin.x) && isfinite(rect.origin.y) &&
@@ -216,15 +217,16 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
     BOOL active=_specialMode!=ZYSpecialCandidateNone||_composition.length||_pieceCount||_candidateCount;
     if(!active)return NO;
 
-    // Keep the client in IME mode, but never expose unresolved Zhuyin as client
-    // text.  Return accepts only the currently highlighted candidate while
-    // phonetics remain; a later Return commits the fully chosen result.
+    // Keep Return inside the IME while composition is active.  Most importantly,
+    // when candidates are visible one Return selects exactly ONE candidate.
+    // Never auto-resolve the remaining Zhuyin and never commit staged text on
+    // the same keypress that selected a candidate.
     [self publishMarkedText:client];
-    if(_specialMode!=ZYSpecialCandidateNone)return [self chooseSelected:client];
-    if(_composition.length){
-        if(_candidateCount)return [self chooseSelected:client];
-        NSBeep();[self refreshPanel:client];return YES;
+    if(_candidateCount){
+        [self chooseSelected:client];
+        return YES;
     }
+    if(_composition.length){NSBeep();[self refreshPanel:client];return YES;}
     if(_pieceCount){[self learnAndCommit:client];return YES;}
     return YES;
 }
@@ -238,10 +240,11 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
     [self refreshPanel:client];
 }
 - (void)refreshPanel:(id)client {
-    NSString *preedit=[self preeditText];
-    if(!_chinese||(!_candidateCount&&!preedit.length)){[self hideCandidatePanel];return;}
+    if(!_chinese||(!_candidateCount&&!_composition.length&&!_pieceCount&&_specialMode==ZYSpecialCandidateNone)){[self hideCandidatePanel];return;}
     ZYCandidatePanel *panel=[self ensureCandidatePanel];
-    [panel setPreeditText:_specialMode==ZYSpecialCandidateNone?preedit:@""];
+    [panel setPreeditLabel:_pieceCount?@"已選內容":@""];
+    [panel setPreeditText:[self piecesText]];
+    [panel setZhuyinText:_composition];
     NSUInteger pageSize=ZYSpecialPageSize(_specialMode);_pageStart=(_selected/pageSize)*pageSize;if(!_candidateCount)_pageStart=0;NSUInteger count=_candidateCount?MIN(pageSize,_candidateCount-_pageStart):0;
     if(_specialMode!=ZYSpecialCandidateNone){
         NSArray<NSString*> *all=ZYSpecialCandidates(_specialMode);
@@ -304,10 +307,18 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
 }
 
 - (void)appendPunctuation:(NSString *)punct client:(id)client {
-    // A boundary resolves the current composition into staged candidates first.
-    for(int guard=0;_composition.length&&guard<16;guard++){if(!_candidateCount)[self refreshCandidates:client];NSUInteger before=_composition.length;if(![self chooseSelected:client]||_composition.length>=before)break;}
-    if(_composition.length)return;
-    if(_pieceCount>=ZY_MAX_PIECES){NSBeep();return;}ZYPendingPiece *p=&_pieces[_pieceCount++];memset(p,0,sizeof(*p));p->kind=ZYPiecePunctuation;ccopy(p->text,sizeof(p->text),punct.UTF8String);[self updateMarked:client];
+    // Match the HTML staging rule: punctuation may select the current candidate
+    // once, but it must never auto-walk through every remaining candidate.
+    if(_composition.length){
+        if(!_candidateCount)[self refreshCandidates:client];
+        if(!_candidateCount){NSBeep();[self refreshPanel:client];return;}
+        NSUInteger before=_composition.length;
+        if(![self chooseSelected:client]||_composition.length>=before){NSBeep();[self refreshPanel:client];return;}
+        if(_composition.length){NSBeep();[self refreshPanel:client];return;}
+    }
+    if(_pieceCount>=ZY_MAX_PIECES){NSBeep();return;}
+    ZYPendingPiece *p=&_pieces[_pieceCount++];memset(p,0,sizeof(*p));p->kind=ZYPiecePunctuation;ccopy(p->text,sizeof(p->text),punct.UTF8String);
+    [self updateMarked:client];[self refreshPanel:client];
 }
 
 - (void)learnAndCommit:(id)client {
@@ -335,14 +346,27 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
     id client=sender?:[self client];
     if(!client)return;
 
-    // Browsers can issue this callback for the same Return that is being used
-    // to select a candidate.  Never turn that callback into an implicit
-    // "select everything" command: unresolved Zhuyin stays in the popup for
-    // the user to choose explicitly.
-    if(_composition.length){[self refreshCandidates:client];return;}
+    // A client can request an immediate composition commit (focus changes,
+    // navigation, etc.). Resolve the remaining Zhuyin through the currently
+    // selected candidates first so staged text is not lost.
+    for(int guard=0;_composition.length&&guard<16;guard++){
+        if(!_candidateCount)[self refreshCandidates:client];
+        NSUInteger before=_composition.length;
+        if(!_candidateCount||![self chooseSelected:client]||_composition.length>=before)break;
+    }
     if(_pieceCount){
         [self learnAndCommit:client];
         return;
+    }
+
+    // Unresolved phonetics are an IME-internal buffer, not document text.
+    // On a forced commit (focus change/navigation), discard that unfinished
+    // reading instead of ever inserting raw Bopomofo into the client.
+    if(_composition.length){
+        [_composition setString:@""];
+        _candidateCount=0;_selected=0;_pageStart=0;
+        [self hideCandidatePanel];
+        [self updateMarked:client];
     }
 }
 
@@ -377,6 +401,15 @@ static NSString *chinesePunctuation(unsigned short k,BOOL shift){if(!shift){if(k
 
 - (BOOL)handleEvent:(NSEvent *)event client:(id)client {
     if(!event)return NO;
+    if(event.type==NSEventTypeKeyDown){
+        NSUInteger key=(NSUInteger)event.keyCode;
+        // InputMethodKit does not reliably deliver a matching Return keyUp to
+        // third-party input methods.  Never use the persistent keyDown latch
+        // for Return/Enter or later fresh presses can be swallowed forever.
+        // Native repeat events are enough to ensure one physical held Return
+        // cannot advance through more than one IME stage.
+        if((key==36||key==76)&&event.isARepeat)return YES;
+    }
     if(event.type==NSEventTypeKeyUp){
         NSUInteger key=(NSUInteger)event.keyCode;
         if(key<256&&_handledKeyDown[key]){
@@ -389,7 +422,8 @@ static NSString *chinesePunctuation(unsigned short k,BOOL shift){if(!shift){if(k
     BOOL handled=[self handleInputEvent:event client:client];
     if(event.type==NSEventTypeKeyDown&&handled){
         NSUInteger key=(NSUInteger)event.keyCode;
-        if(key<256)_handledKeyDown[key]=YES;
+        // Keep keyUp pairing for other handled keys, but never for Return/Enter.
+        if(key<256&&key!=36&&key!=76)_handledKeyDown[key]=YES;
     }
     return handled;
 }
@@ -459,7 +493,7 @@ static NSString *chinesePunctuation(unsigned short k,BOOL shift){if(!shift){if(k
             if(_panel.quickHelpVisible){[_panel closeQuickHelp];return YES;}
             if(_specialMode!=ZYSpecialCandidateNone){[self closeSpecialCandidates:client];return YES;}
             if(_composition.length){[_composition setString:@""];_candidateCount=0;[self updateMarked:client];[self hideCandidatePanel];return YES;}
-            if(_pieceCount){_pieceCount=0;[self updateMarked:client];return YES;}return NO;
+            if(_pieceCount){_pieceCount=0;[self updateMarked:client];[self refreshPanel:client];return YES;}return NO;
         case 49:
             if(_specialMode!=ZYSpecialCandidateNone)return [self chooseSelected:client];
             if(_composition.length){

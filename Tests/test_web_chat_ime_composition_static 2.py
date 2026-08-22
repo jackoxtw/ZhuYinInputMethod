@@ -35,8 +35,8 @@ def test_marked_text_is_published_directly_to_client_on_every_preedit_update():
     assert 'inlineMarkedText' in body
     helper = method_body(text, '- (NSString *)inlineMarkedText')
     assert 'piecesText' not in helper
-    assert '_pieceCount' in helper
     assert 'preeditText' not in helper
+    assert '@"\\ufeff"' in helper
     assert '[self updateComposition]' not in body
 
 
@@ -56,7 +56,7 @@ def test_handled_keydown_has_matching_keyup_consumed():
     assert 'return YES' in body
 
 
-def test_enter_uses_same_ime_safe_path_for_main_and_keypad_return():
+def test_enter_uses_same_immediate_ime_commit_path_for_main_and_keypad_return():
     text = source()
     enter = re.search(r'case 36:\s*\n\s*case 76:\s*\n\s*return \[self consumeReturnWhileComposing:client\];', text)
     assert enter, 'main Return and keypad Enter must share the IME-safe path'
@@ -65,31 +65,21 @@ def test_enter_uses_same_ime_safe_path_for_main_and_keypad_return():
     assert '[self publishMarkedText:client]' in body
     assert 'dispatch_async' not in body
     assert 'commitComposition:' not in body
+    assert 'learnAndCommit:' in body
     assert 'return YES' in body
 
 
-def test_return_with_candidates_selects_exactly_one_candidate_and_never_commits_same_keypress():
+def test_enter_selects_only_one_candidate_while_zhuyin_remains():
     text = source()
     body = method_body(text, '- (BOOL)consumeReturnWhileComposing:(id)client')
+    compact = re.sub(r'\s+', '', body)
 
-    # Return must never auto-resolve every remaining syllable/candidate.
-    assert 'for(int guard=' not in body
-
-    candidate_start = body.find('if(_candidateCount)')
-    assert candidate_start >= 0, 'Return must have an explicit candidate-selection branch'
-    candidate_end = body.find('if(_composition.length)', candidate_start)
-    assert candidate_end > candidate_start
-    candidate_branch = body[candidate_start:candidate_end]
-    assert '[self chooseSelected:client]' in candidate_branch
-    assert 'return YES' in candidate_branch
-    assert 'learnAndCommit:' not in candidate_branch
-
-    # Staged text can only be committed by a later Return after there are no
-    # candidates and no unresolved Zhuyin left.
-    composition_guard = body.find('if(_composition.length)', candidate_end - len('if(_composition.length)'))
-    commit_pos = body.find('[self learnAndCommit:client]')
-    assert composition_guard >= 0
-    assert commit_pos > composition_guard
+    # Return must not consume all remaining syllables and immediately commit
+    # them.  While raw Zhuyin remains, it only accepts the highlighted item.
+    assert 'for(intguard=0;_composition.length&&guard<16;guard++)' not in compact
+    assert 'if(_composition.length){if(_candidateCount){BOOLresult=[selfchooseSelected:client];' in compact
+    assert '@"Returnchoseonecandidate"' in compact
+    assert 'if(_pieceCount){[selftraceCompositionState:@"Returnfinalcommit"];[selflearnAndCommit:client];returnYES;}' in compact
 
 
 def test_commit_clears_marked_text_through_same_direct_client_path():
@@ -99,5 +89,13 @@ def test_commit_clears_marked_text_through_same_direct_client_path():
     assert '[self updateComposition]' not in body
 
     body = method_body(text, '- (void)commitComposition:(id)sender')
-    assert '[self updateMarked:client]' in body
+    assert 'if(_composition.length||_pieceCount){[self refreshCandidates:client];return;}' in body
+    assert '[self learnAndCommit:client]' not in body
     assert '[self updateComposition]' not in body
+
+
+if __name__ == '__main__':
+    for name in sorted(globals()):
+        if name.startswith('test_'):
+            globals()[name]()
+    print('test_web_chat_ime_composition_static: OK')

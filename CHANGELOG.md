@@ -2,13 +2,45 @@
 
 本文件記錄逐音輸入法的版本更新。最新版本請見 [README](README.md)。
 
+## v0.1.59 / build 62
+
+### 未完成注音移至候選窗最右側
+
+- 候選窗上方的待確認列改為左右分區：左側保留已選待確認內容，最右側使用固定欄位顯示尚未完成的注音。
+- 未完成注音在右側欄位內明確靠左對齊，不再與已選內容串接在同一段文字中。
+- 保留 v0.1.58 已確認正常的 Return／Enter 狀態機，不更動選候選、提交與網頁送出流程。
+
+## v0.1.58 / build 61
+
+### Return 第二次按下無反應修正
+
+- 修正 v0.1.57 將 HTML 的 `keyup` 鎖直接移植到 InputMethodKit 後，Return／Enter 可能因 macOS 未回送對應 KeyUp 而永久維持 `_handledKeyDown`，造成第一次選候選後後續 Enter 全部無反應。
+- Return／Enter 不再使用持久 `_handledKeyDown` 鎖；只使用 `NSEvent.isARepeat` 攔截長按自動重複。
+- 其他需要 keyDown／keyUp 配對的已處理按鍵仍保留原本 latch，不影響既有快捷鍵。
+- 操作順序維持：第一次 Enter 選目前候選；下一次新的 Enter 提交已確認文字；組字完全結束後再下一次 Enter 才交給應用程式。
+
+## v0.1.57 / build 60
+
+- 修正 `ZYCandidatePanel.mm` 編譯錯誤：`preeditHeaderHeight` 僅保留於 `ZYCandidateView`，不再誤用於 `ZYHelpView` / `ZYClearLearningView`。
+
+### 同步 HTML 逐段 Enter 狀態機
+
+- 正式版完整同步已驗證可用的 HTML Enter 行為：有候選時每一次實體 Return／Enter 只確認目前反白的一個候選。
+- 新增 Return／Enter 實體按鍵鎖；同一顆按鍵尚未 KeyUp 前產生的 repeat KeyDown 全部攔截，不能在一次長按中連續「選候選 → 提交 → 送出」。
+- 已選候選與未完成注音都不再作為可見 marked text 放在應用程式游標旁；客體只收到不可見 IME placeholder。
+- 候選窗上方改為顯示「已選內容／未完成注音」，完整呈現 staged pieces + 尚未完成的注音。
+- 全部候選選完後，候選窗仍保留待確認內容；下一次 Enter 才提交中文，再下一次 Enter 才會放行給網頁聊天室。
+- 中文標點邊界也改為最多只選一次目前候選，不再自動一路解析剩餘候選。
+- 專案內 HTML Reference 同步為本次已驗證的逐段 Enter 版本。
+
 ## v0.1.55 / build 58
 
-### 浮動注音組字列編譯修正
+### Enter 只確認目前候選
 
-- 修正 `ZYCandidatePanel.mm` 將 `preeditHeaderHeight` 誤加入 `ZYHelpView` 與 `ZYClearLearningView`，造成兩個類別引用不存在的 `preeditText` 屬性而無法編譯。
-- `preeditText` 與 `preeditHeaderHeight` 現在只由真正的 `ZYCandidateView` 持有與使用。
-- 新增類別邊界回歸檢查，避免候選組字列專用方法再次被誤插到說明／清除學習 View。
+- 修正候選字仍存在時按 Return／Enter 會自動把剩餘注音候選全部解析並直接提交整段文字的問題。
+- Return／Enter 在候選窗可見時現在只確認目前反白的一個候選，立即結束該次按鍵處理，不會同時執行整段提交。
+- 已選候選會先保留在逐音的 staged composition；只有候選與未完成注音都已清空後，再按一次 Return／Enter 才提交已確認文字。
+- 未完成注音仍只顯示在候選窗上方，不會回到文字游標旁。
 
 ## v0.1.54 / build 57
 

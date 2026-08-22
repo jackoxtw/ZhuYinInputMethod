@@ -4,6 +4,8 @@
 #include <string.h>
 
 static const CGFloat ZYPreeditHeaderHeight=34.0;
+static const CGFloat ZYPreeditZhuyinColumnX=502.0;
+static const CGFloat ZYPreeditZhuyinColumnWidth=220.0;
 
 @interface ZYHelpPanel : NSPanel
 @end
@@ -64,7 +66,7 @@ static const CGFloat ZYPreeditHeaderHeight=34.0;
     [@"五聲　ˉ ˊ ˇ ˋ ˙" drawAtPoint:NSMakePoint(24,104) withAttributes:tones];
 
     [self drawShortcut:@"Space" detail:@"閒置輸出空格；注音時第一聲 ˉ／確認候選" y:132];
-    [self drawShortcut:@"Enter" detail:@"確認並提交組字" y:162];
+    [self drawShortcut:@"Enter" detail:@"逐段選候選；選完再提交" y:162];
     [self drawShortcut:@"↑ ↓ ← →" detail:@"移動候選" y:192];
     [self drawShortcut:@"PgUp / PgDn" detail:@"切換候選頁" y:222];
     [self drawShortcut:@"Shift 1–0 / A–J" detail:@"有候選：快速選候選" y:252];
@@ -78,7 +80,7 @@ static const CGFloat ZYPreeditHeaderHeight=34.0;
 
     NSRect bottom=self.helpBottomCloseRect;
     NSDictionary *versionAttrs=@{NSFontAttributeName:[NSFont monospacedSystemFontOfSize:11 weight:NSFontWeightMedium],NSForegroundColorAttributeName:[NSColor colorWithWhite:.55 alpha:1]};
-    [@"v0.1.55" drawAtPoint:NSMakePoint(24,NSMidY(bottom)-6) withAttributes:versionAttrs];
+    [@"v0.1.59" drawAtPoint:NSMakePoint(24,NSMidY(bottom)-6) withAttributes:versionAttrs];
     [[NSColor colorWithWhite:.25 alpha:1] setFill];
     [[NSBezierPath bezierPathWithRoundedRect:bottom xRadius:8 yRadius:8] fill];
     NSDictionary *buttonAttrs=@{NSFontAttributeName:[NSFont systemFontOfSize:13 weight:NSFontWeightSemibold],NSForegroundColorAttributeName:NSColor.whiteColor};
@@ -189,6 +191,8 @@ typedef NS_ENUM(NSUInteger, ZYClearLearningViewState){
 @property(nonatomic,strong) NSArray<NSNumber*> *deletable;
 @property(nonatomic,copy) NSString *modeLabel;
 @property(nonatomic,copy) NSString *preeditText;
+@property(nonatomic,copy) NSString *zhuyinText;
+@property(nonatomic,copy) NSString *preeditLabel;
 - (CGFloat)preeditHeaderHeight;
 - (void)prepareCandidateTextLayout;
 @end
@@ -285,6 +289,7 @@ static NSDictionary *ZYPreeditTextAttributes(void){
     dispatch_once(&onceToken, ^{
         NSMutableParagraphStyle *paragraph=[[NSMutableParagraphStyle alloc]init];
         paragraph.lineBreakMode=NSLineBreakByTruncatingHead;
+        paragraph.alignment=NSTextAlignmentLeft;
         attrs=@{NSFontAttributeName:[NSFont systemFontOfSize:17 weight:NSFontWeightSemibold],NSForegroundColorAttributeName:NSColor.whiteColor,NSParagraphStyleAttributeName:[paragraph copy]};
     });
     return attrs;
@@ -296,7 +301,7 @@ static NSDictionary *ZYPreeditTextAttributes(void){
 - (BOOL)needsPanelToBecomeKey{return NO;}
 - (BOOL)acceptsFirstResponder{return NO;}
 - (BOOL)mouseDownCanMoveWindow{return NO;}
-- (CGFloat)preeditHeaderHeight{return self.preeditText.length?ZYPreeditHeaderHeight:0.0;}
+- (CGFloat)preeditHeaderHeight{return (self.preeditText.length||self.zhuyinText.length)?ZYPreeditHeaderHeight:0.0;}
 - (NSRect)scriptRect{return NSMakeRect(732,6,48,32);}
 - (NSRect)helpRect{return NSMakeRect(732,42,48,18);}
 - (NSRect)clearLearningRect{return NSMakeRect(732,MAX(86.0,NSHeight(self.bounds)-24.0),48,18);}
@@ -333,14 +338,29 @@ static NSDictionary *ZYPreeditTextAttributes(void){
     [[NSColor colorWithWhite:0.10 alpha:0.96] setFill];
     [[NSBezierPath bezierPathWithRoundedRect:self.bounds xRadius:10 yRadius:10] fill];
 
-    if(self.preeditText.length){
+    if(self.preeditText.length||self.zhuyinText.length){
         CGFloat preeditY=6.0;
         NSRect preeditRect=NSMakeRect(6,preeditY,716,ZYPreeditHeaderHeight-8.0);
         [[NSColor colorWithWhite:.16 alpha:1] setFill];
         [[NSBezierPath bezierPathWithRoundedRect:preeditRect xRadius:6 yRadius:6] fill];
-        [@"注音" drawAtPoint:NSMakePoint(14,preeditY+7) withAttributes:ZYPreeditLabelAttributes()];
-        NSRect textRect=NSMakeRect(50,preeditY+3,662,ZYPreeditHeaderHeight-10.0);
-        [self.preeditText drawWithRect:textRect options:NSStringDrawingUsesLineFragmentOrigin|NSStringDrawingTruncatesLastVisibleLine attributes:ZYPreeditTextAttributes()];
+
+        // Left side: already-selected pending text.
+        if(self.preeditText.length){
+            NSString *preeditLabel=self.preeditLabel.length?self.preeditLabel:@"已選內容";
+            [preeditLabel drawAtPoint:NSMakePoint(14,preeditY+7) withAttributes:ZYPreeditLabelAttributes()];
+            NSRect pendingRect=NSMakeRect(74,preeditY+3,ZYPreeditZhuyinColumnX-84,ZYPreeditHeaderHeight-10.0);
+            [self.preeditText drawWithRect:pendingRect options:NSStringDrawingUsesLineFragmentOrigin|NSStringDrawingTruncatesLastVisibleLine attributes:ZYPreeditTextAttributes()];
+        }
+
+        // Right side: unfinished Zhuyin owns a fixed column at the far right.
+        // The symbols are explicitly left-aligned inside this column.
+        if(self.zhuyinText.length){
+            NSRect zhuyinRect=NSMakeRect(ZYPreeditZhuyinColumnX,preeditY,ZYPreeditZhuyinColumnWidth,ZYPreeditHeaderHeight-8.0);
+            [[NSColor colorWithWhite:.205 alpha:1] setFill];
+            [[NSBezierPath bezierPathWithRoundedRect:zhuyinRect xRadius:6 yRadius:6] fill];
+            NSRect zhuyinTextRect=NSInsetRect(zhuyinRect,10,3);
+            [self.zhuyinText drawWithRect:zhuyinTextRect options:NSStringDrawingUsesLineFragmentOrigin|NSStringDrawingTruncatesLastVisibleLine attributes:ZYPreeditTextAttributes()];
+        }
     }
 
     NSArray<NSString*> *shortcuts=ZYCandidateShortcuts();
@@ -462,6 +482,20 @@ static NSDictionary *ZYPreeditTextAttributes(void){
     _cv.preeditText=[next copy];
     [self resizeForRows:_cv.rows];
     [_cv prepareCandidateTextLayout];
+    [_cv setNeedsDisplay:YES];
+}
+- (void)setZhuyinText:(NSString *)text {
+    NSString *next=text?:@"";
+    if([_cv.zhuyinText isEqualToString:next])return;
+    _cv.zhuyinText=[next copy];
+    [self resizeForRows:_cv.rows];
+    [_cv prepareCandidateTextLayout];
+    [_cv setNeedsDisplay:YES];
+}
+- (void)setPreeditLabel:(NSString *)label {
+    NSString *next=label?:@"";
+    if([_cv.preeditLabel isEqualToString:next])return;
+    _cv.preeditLabel=[next copy];
     [_cv setNeedsDisplay:YES];
 }
 - (void)setDeleteMode:(BOOL)enabled { if(_cv.deleteMode==enabled)return;_cv.deleteMode=enabled;[_cv setNeedsDisplay:YES]; }
@@ -592,7 +626,7 @@ static NSDictionary *ZYPreeditTextAttributes(void){
 }
 - (void)orderOut:(id)sender{
     [self closeQuickHelp];[self closeClearLearningConfirmation];
-    _cv.words=@[];_cv.modeLabel=@"";_cv.preeditText=@"";_cv.count=0;_cv.selected=0;
+    _cv.words=@[];_cv.modeLabel=@"";_cv.preeditText=@"";_cv.zhuyinText=@"";_cv.preeditLabel=@"";_cv.count=0;_cv.selected=0;
     _cv.columns=10;_cv.rowHeight=38;_cv.rows=2;[_cv prepareCandidateTextLayout];
     [super orderOut:sender];
 }

@@ -26,15 +26,14 @@ def method_body(source: str, signature: str):
     raise AssertionError(f'unclosed method {signature}')
 
 
-def test_unfinished_zhuyin_is_not_published_as_inline_marked_text():
+def test_all_pending_text_is_kept_out_of_inline_marked_text():
     source = text(CONTROLLER)
     body = method_body(source, '- (void)updateMarked:(id)client')
     assert 'inlineMarkedText' in body
     helper = method_body(source, '- (NSString *)inlineMarkedText')
     assert 'piecesText' not in helper
-    assert '_pieceCount' in helper
     assert 'preeditText' not in helper
-    assert '@"\\u2060"' in helper
+    assert '@"\\ufeff"' in helper
 
 
 def test_candidate_panel_has_dedicated_popup_preedit_api():
@@ -56,13 +55,12 @@ def test_popup_preedit_is_drawn_above_candidate_rows():
     assert 'y0=self.preeditHeaderHeight+6' in panel
 
 
-def test_panel_stays_visible_for_unresolved_zhuyin_even_without_candidates():
+def test_panel_shows_all_pending_text_even_without_candidates():
     source = text(CONTROLLER)
     body = method_body(source, '- (void)refreshPanel:(id)client')
-    assert '_composition.length' in body
+    assert 'NSString *preedit=[self preeditText];' in body
     assert 'setPreeditText:' in body
-    assert '_composition' in body
-    assert '!_candidateCount&&!_composition.length' in body.replace(' ', '')
+    assert '!_candidateCount&&!preedit.length' in body.replace(' ', '')
 
 
 def test_caret_lookup_does_not_index_by_hidden_zhuyin_length():
@@ -88,10 +86,12 @@ def test_enter_never_commits_unresolved_zhuyin_as_literal_text():
     assert 'return YES' in body
 
 
-def test_forced_commit_discards_unresolved_zhuyin_instead_of_inserting_it():
+def test_commit_callback_never_commits_any_pending_candidate_piece():
     source = text(CONTROLLER)
     body = method_body(source, '- (void)commitComposition:(id)sender')
-    unresolved = body[body.find('if(_composition.length)'):]
-    assert '[client insertText:' not in unresolved
-    assert '[_composition setString:@""]' in unresolved
-    assert '[self updateMarked:client]' in unresolved
+    compact = body.replace(' ', '')
+    assert '[clientinsertText:' not in compact
+    assert '[selfchooseSelected:client]' not in compact
+    assert 'for(intguard=0;_composition.length&&guard<16;guard++)' not in compact
+    assert 'if(_composition.length||_pieceCount){[selfrefreshCandidates:client];return;}' in compact
+    assert '[selflearnAndCommit:client]' not in compact

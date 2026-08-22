@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>台灣注音輸入法 Canvas 原型</title>
+<title>逐音輸入法 HTML · v0.1.59</title>
 <style>
   html,body{margin:0;min-height:100%;background:#eef1f6;color:#172033;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif}
   body{display:flex;flex-direction:column;align-items:center;padding:12px;box-sizing:border-box}
@@ -21,16 +21,16 @@
 </style>
 </head>
 <body>
-<div class="title"><h1>台灣注音輸入法 · Canvas Prototype</h1><span>低記憶體詞庫｜聲母縮寫｜自適應候選｜中英切換｜繁入簡出｜中文標點｜離線單檔</span></div>
+<div class="title"><h1>逐音輸入法 · HTML v0.1.59</h1><span>低記憶體詞庫｜聲母縮寫｜自適應候選｜中英切換｜繁入簡出｜中文標點｜離線單檔</span></div>
 <canvas id="imeCanvas" tabindex="0" role="application" aria-label="Canvas 注音輸入法"></canvas>
-<div class="note">單按 <b>Shift</b> 會先送出已確認 pending 片段，再清除未確認 composition／一般候選並切換中／英輸入；按 <b>Shift</b> 加英文字母時，會同樣保留已確認、取消未確認並直接輸入英文，也就是取消未確認注音。Shift 若搭配候選快捷鍵、<b>` Emoji</b>、<b>' 標點</b> 或其他標點則不切換。候選可用 <b>← → ↑ ↓</b>、<b>PageUp/PageDown</b>、<b>Home/End</b> 與 <b>Shift+1～0 / Shift+A～J</b> 操作；更多細節請見下方 <a href="#full-guide-title">完整使用說明</a>。</div>
+<div class="note"><b>逐音輸入法 HTML 操作規則：</b>未完成注音只顯示在候選框上方，不放進輸出文字；有候選時，每一次實體 <b>Enter</b> 只選目前反白候選一次，必須放開再按才會進到下一步。全部選完後，再按一次 Enter 才確認整段中文；再下一次 Enter 才會換行／模擬聊天室送出。單按 <b>Shift</b> 會先送出已確認 pending 片段，再清除未確認 composition／一般候選並切換中／英輸入；按 <b>Shift</b> 加英文字母時，會同樣保留已確認、取消未確認並直接輸入英文，也就是取消未確認注音。Shift 若搭配候選快捷鍵、<b>` Emoji</b>、<b>' 標點</b> 或其他標點則不切換。候選可用 <b>← → ↑ ↓</b>、<b>PageUp/PageDown</b>、<b>Home/End</b> 與 <b>Shift+1～0 / Shift+A～J</b> 操作；更多細節請見下方 <a href="#full-guide-title">完整使用說明</a>。</div>
 <section class="full-guide" aria-labelledby="full-guide-title">
   <h2 id="full-guide-title">完整使用說明</h2>
   <h3>注音與候選</h3>
   <ul>
     <li>直接輸入注音符號組字；候選先依輸入音節數顯示等長詞（1 音節→1 字、2 音節→2 字、3 音節→3 字，以此類推），後面再接讀音前綴相符、曾經學習過的較長詞，並依 3 字、4 字、5 字…由短到長排列；一般未學習長詞不會混入。沒有等長完整詞時才退回拆字候選。可用滑鼠、<kbd>Enter</kbd> 或 <kbd>Shift+1～0</kbd> / <kbd>Shift+A～J</kbd> 選字。</li>
     <li>候選面板支援 <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd>、<kbd>PageUp</kbd> / <kbd>PageDown</kbd> 翻頁，以及 <kbd>Home</kbd> / <kbd>End</kbd> 跳到首尾。</li>
-    <li><kbd>Enter</kbd> 會確認目前組好的中文；<kbd>Space</kbd> 在組字末尾未標聲調時補上第一聲 <kbd>ˉ</kbd>，已有聲調時會選取目前候選但不立即送出，已有待確認片段時加入空白，閒置時則直接輸入空白；滑鼠點選候選時會保留 composition 與 pending 狀態，不會清掉已輸入內容。</li>
+    <li><kbd>Enter</kbd> 採逐段確認：只要還有候選，每次只選目前反白候選一次；選完全部注音後，再按一次才確認整段中文，再下一次才會換行／模擬聊天室送出。按住 Enter 產生的重複 keydown 會被忽略，必須放開後才能進入下一步。未完成注音不會當成文字候選送出。<kbd>Space</kbd> 在組字末尾未標聲調時補上第一聲 <kbd>ˉ</kbd>，已有聲調時會選取目前候選但不立即送出，已有待確認片段時加入空白，閒置時則直接輸入空白；滑鼠點選候選時會保留 composition 與 pending 狀態，不會清掉已輸入內容。</li>
   </ul>
   <h3>中英切換與快捷鍵</h3>
   <ul>
@@ -804,7 +804,7 @@
     specialMode: null,
     inputMode: savedSettings.inputMode==='en'?'en':'zh',
     outputScript: savedSettings.outputScript==='simp'?'simp':'trad',
-    shiftDown: false, shiftUsed: false, optionDown: false, capsLock: false
+    shiftDown: false, shiftUsed: false, optionDown: false, capsLock: false, enterDown: false
   };
 
   const KEY_ROWS = [
@@ -889,7 +889,7 @@
   }
 
   function refreshCandidates(){
-    state.candidates = state.composition ? withLiteralZhuyinCandidate(core.lookup(state.composition,45),state.composition,45) : [];
+    state.candidates = state.composition ? core.lookup(state.composition,45) : [];
     state.selected = 0;
     state.candidateMode = false;
     render();
@@ -925,7 +925,7 @@
       state.pendingParts=appendPendingWordPart(state.pendingParts,autoSegment);
     }
     state.composition=advanced.composition;
-    state.candidates=state.composition ? withLiteralZhuyinCandidate(core.lookup(state.composition,45),state.composition,45) : [];
+    state.candidates=state.composition ? core.lookup(state.composition,45) : [];
     state.selected=0;
     state.candidateMode=false;
     render();
@@ -955,7 +955,7 @@
       if(!slice.usedQuery) return false;
       state.pendingParts=appendPendingLiteralZhuyinPart(state.pendingParts,c.word,slice.usedQuery);
       state.composition=slice.remainder;
-      state.candidates=state.composition ? withLiteralZhuyinCandidate(core.lookup(state.composition,45),state.composition,45) : [];
+      state.candidates=state.composition ? core.lookup(state.composition,45) : [];
       state.selected=0;state.candidateMode=false;render();return true;
     }
     const selectedCandidate={...c,pronKey:c.pronKey||core.pronunciationKeyForId(c.id)||''};
@@ -973,7 +973,7 @@
     state.pendingSegments=staged.pendingSegments;
     state.pendingParts=appendPendingWordPart(state.pendingParts,addedSegment);
     state.composition=staged.composition;
-    state.candidates=state.composition ? withLiteralZhuyinCandidate(core.lookup(state.composition,45),state.composition,45) : [];
+    state.candidates=state.composition ? core.lookup(state.composition,45) : [];
     state.selected=0;state.candidateMode=false;render(); return true;
   }
   function finalizePending(){
@@ -1006,7 +1006,7 @@
     if(part.type==='punct') { render(); return true; }
     if(part.type==='literalZhuyin'){
       state.composition=String(part.query||part.text||'')+state.composition;
-      state.candidates=withLiteralZhuyinCandidate(core.lookup(state.composition,45),state.composition,45);
+      state.candidates=core.lookup(state.composition,45);
       state.selected=0;state.candidateMode=false;render();return true;
     }
     if(part.type==='word'&&part.segment){
@@ -1016,7 +1016,7 @@
       const queryChars=Array.from(state.pendingQuery), removeQuery=Array.from(seg.query||'').length;
       state.pendingQuery=queryChars.slice(0,Math.max(0,queryChars.length-removeQuery)).join('');
       state.composition=String(seg.query||'')+state.composition;
-      state.candidates=withLiteralZhuyinCandidate(core.lookup(state.composition,45),state.composition,45);
+      state.candidates=core.lookup(state.composition,45);
       state.selected=0;state.candidateMode=false;render();return true;
     }
     render();return true;
@@ -1085,11 +1085,10 @@
       state.committed+=' ';render();
     } else if(action==='enter'){
       if(state.specialMode){chooseSelectedCandidate();return;}
-      if(state.composition){
-        if(!commitCandidate()) setToast('請先選字');
-      } else if(state.pendingParts.length){
-        finalizePending();
-      } else {state.committed+='\n';render();}
+      if(state.composition && state.candidates.length){chooseSelectedCandidate();return;}
+      if(state.composition){setToast('請先完成選字');return;}
+      if(state.pendingParts.length){finalizePending();return;}
+      state.committed+='\n';render();
     } else if(action==='escape'){
       if(state.specialMode){
         closeSpecialCandidates();return;
@@ -1143,7 +1142,7 @@
 
     roundRect(12,122,w-24,58,16,'#eef4ff','#cbd9f3');
     if(state.inputMode==='zh'){
-      text(state.pendingParts.length?'待確認／注音':'注音',28,139,11,'700','left','#58709c');
+      text(state.pendingParts.length?'已選內容／未完成注音':'未完成注音',28,139,11,'700','left','#58709c');
       const pendingPreview=pendingSurface(state.pendingParts);
       const preedit=pendingPreview+(pendingPreview&&state.composition?'　':'')+(state.composition||'');
       text(preedit || '開始輸入注音…',28,159,25,'700','left',preedit?'#1d2a44':'#95a0b4');
@@ -1182,7 +1181,7 @@
         if(!state.specialMode && state.optionDown && c.learned) text('刪除',x+chipW-7,y+11,10,'700','right',selected?'#ffffff':'#ff9a9a');
         addHit(x,y,chipW,chipH,{type:'candidate',index:abs});
       }
-      if(!candidates.length) text(state.composition?'沒有等長完整詞時才顯示拆字候選；選完後再按 Enter 送出':(state.pendingParts.length?'已選字，按 Enter 確認並學習新詞':'候選會顯示在這裡'),innerX+innerW/2,candidateY+candidateH/2,14,'500','center','#b7b7b7');
+      if(!candidates.length) text(state.composition?'目前沒有可選候選；未完成注音不會送到輸出文字':(state.pendingParts.length?'全部候選已選完；再按 Enter 才確認整段中文':'候選會顯示在這裡'),innerX+innerW/2,candidateY+candidateH/2,14,'500','center','#b7b7b7');
     } else text('英文輸入模式　｜　單按 Shift 切回中文',innerX+innerW/2,candidateY+candidateH/2,16,'700','center','#c3c3c3');
     const railButtonH=18;
     const railGap=3;
@@ -1190,8 +1189,8 @@
     rail.forEach(([label,action],i)=>{const y=candidateY+10+i*(railButtonH+railGap);roundRect(railX,y,railW-8,railButtonH,5,'#2d2d2d','#454545');text(label,railX+(railW-8)/2,y+railButtonH/2,label==='？'?13:8,'700','center','#f4f4f4');addHit(railX,y,railW-8,railButtonH,{type:'action',action});});
     if(state.helpVisible){
       roundRect(innerX+12,candidateY+18,innerW-24,candidateH-36,12,'#151515','#6b6b6b');
-      text('逐音輸入法  v0.1.55',innerX+30,candidateY+42,16,'700','left','#ffffff');
-      text("Shift 切換中英；F9 繁簡；` Emoji；' 標點；Shift+1–0 / A–J 選字",innerX+30,candidateY+68,12,'500','left','#d0d0d0');
+      text('逐音輸入法  v0.1.59',innerX+30,candidateY+42,16,'700','left','#ffffff');
+      text("Enter：有候選只選一次；全部選完再 Enter 確認；再 Enter 換行",innerX+30,candidateY+68,12,'500','left','#d0d0d0');
       text('Option：僅已學習候選顯示「刪除」，點選可移除',innerX+30,candidateY+90,12,'500','left','#d0d0d0');
       text('點右側 ？ 關閉說明',innerX+30,candidateY+112,12,'500','left','#d0d0d0');
     }
@@ -1270,6 +1269,7 @@
     if(typeof e.getModifierState==='function') state.capsLock=!!e.getModifierState('CapsLock');
     if(e.key==='CapsLock'){render();return;}
     if(!e.metaKey&&!e.ctrlKey&&!e.altKey && e.code==='F9'){e.preventDefault();switchOutputScript();return;}
+    if(e.key==='Enter'){if(state.enterDown || e.repeat){e.preventDefault();return;}state.enterDown=true;}
 
     if(state.inputMode==='en'){
       if(e.metaKey||e.ctrlKey||e.altKey) return;
@@ -1324,12 +1324,14 @@
   },{passive:false});
 
   window.addEventListener('keyup',e=>{
+    if(e.key==='Enter'){state.enterDown=false;return;}
     if(e.key==='Alt'){state.optionDown=false;render();return;}
     if(e.key!=='Shift') return;
     const toggle=shouldToggleShiftOnRelease(state.shiftDown,state.shiftUsed);
     state.shiftDown=false;state.shiftUsed=false;
     if(toggle){e.preventDefault();control('toggleInput');}
   },{passive:false});
+  window.addEventListener('blur',()=>{state.enterDown=false;});
   window.addEventListener('resize',resize);
 
   const smoke=core.lookup('ㄋㄏㄇ',9).some(x=>x.word==='你好嗎');
