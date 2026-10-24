@@ -13,6 +13,8 @@
 
 目前版本：**v0.1.72 / build 75 — Return Guard per-PID / annotated-session 路徑**
 
+**[下載最新版本](https://github.com/jackoxtw/ZhuYinInputMethod/releases/latest)**
+
 ### build 75：直接攔截送往目前 App 的 Enter
 
 - Return Guard 優先使用 `CGEventTapCreateForPid`，把 tap 掛在目前前景 App 的最終事件投遞路徑；組字中的 Return/Keypad Enter 會在目標 App 收到前被刪除，再由逐音手動推進既有 IME Enter 狀態機。
