@@ -78,7 +78,12 @@ def test_return_candidate_then_finalize_then_pass_through_are_three_distinct_pre
     branch = body[candidate:composition]
     assert '[self chooseSelected:client]' in branch
     assert 'return YES' in branch
-    assert 'learnAndCommit:' not in branch
+    assert 'boolForKey:ZYQuickEnterConfirmKey' in branch
+    assert 'quickConfirm' in branch
+    assert '!_composition.length' in branch
+    assert '_pieceCount' in branch
+    assert '[self learnAndCommit:client]' in branch
+    # The original later-Return finalization path remains for browser-safe mode.
     assert '[self learnAndCommit:client]' in body[staged:]
 
 

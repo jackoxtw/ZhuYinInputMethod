@@ -1,0 +1,11 @@
+逐音輸入法 v0.1.67 / build 70
+
+本版重點：候選查詢提速＋Composer 常駐記憶體下降。
+
+1. Top-K 候選不再反覆搬移大型 ZYCandidate，改以 slot index 排序。
+2. 候選文字改為 Lazy copy，只有進入 Top-K 才複製。
+3. 標準注音 bucket 使用固定 index O(1) 定位，並保留舊字典 fallback。
+4. Composer path 移除每路徑 128-byte 文字 buffer，改存 hash＋segment IDs。
+5. Composer workspace 約 760,584 bytes → 264,321 bytes，減少約 496 KB（約 65%）。
+6. 代表性查詢已與 build 69 做候選輸出比對，結果一致。
+7. 保留 build 69 的 22 縣市、368 鄉鎮市區與常見國家／地區詞庫。

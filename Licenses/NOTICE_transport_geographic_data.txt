@@ -1,0 +1,38 @@
+逐音輸入法：交通／地名資料來源 NOTICE
+===================================
+
+1. 台灣道路主名稱
+-----------------
+建置快照來源：
+donma/TaiwanAddressCityAreaRoadChineseEnglishJSON / AllData.json
+upstream blob SHA: 3e42da0c6cf128df35241277d747318dd841db61
+upstream 專案採 MIT License；授權文字另見：
+LICENSE_TaiwanAddressCityAreaRoadChineseEnglishJSON_MIT.txt
+
+上游 README 說明其地址資料參考中華郵政資料。逐音輸入法另將政府資料開放
+平台「全國路名資料」作為現行官方資料來源參考，但交付 ZIP 內沒有直接封裝
+該平台的原始下載檔。
+
+2. 台灣軌道車站名稱
+-------------------
+建置快照來源：
+siriushsu/taiwan-rail-live / data/track_stations.geojson
+upstream blob SHA: eaef7fc1813fe753e1800d614235169d933b344a
+
+逐音輸入法只取 sys + 車站名稱兩個事實欄位，再產生輸入法別名；不封裝上游
+程式碼、軌道幾何、時刻表或 API 憑證。上游 LICENSE 明確說明 data/ 內資料
+衍生自第三方來源，包括交通部 TDX、OpenStreetMap、台鐵官方資料等，實際
+權利依各原始資料來源條款。
+
+其中如有 OpenStreetMap 衍生內容：
+© OpenStreetMap contributors
+OpenStreetMap data is available under the Open Database License (ODbL).
+https://www.openstreetmap.org/copyright
+https://opendatacommons.org/licenses/odbl/1-0/
+
+3. 台灣機場名稱
+---------------
+官方清單參考：交通部民用航空局「機場分佈圖」。逐音輸入法保存 17 座機場
+名稱並另外建立常用輸入別名；不封裝網站圖片或頁面內容。
+
+詳細處理方式與數量請見 Shared/Resources/GEOGRAPHIC_WORDS.md。

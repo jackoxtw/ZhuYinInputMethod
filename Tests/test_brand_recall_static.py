@@ -6,7 +6,7 @@ engine = (ROOT / "Shared" / "Core" / "ZYEngine.c").read_text()
 runtime = (ROOT / "Platforms" / "macOS" / "App" / "ZYRuntime.mm").read_text()
 
 assert "m.initials>0&&m.matched>=5&&m.remaining==0" in engine
-assert "codepoints(c.word,strlen(c.word))>=5" in engine
+assert "codepoints(wp,wn)>=5" in engine
 assert "ZYCandidate raw[256]" in runtime
 assert "zy_engine_lookup(&gEngine,query,raw,256)" in runtime
 assert "if(learned_preference>raw[i].preference_rank)" in runtime

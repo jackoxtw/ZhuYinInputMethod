@@ -5,18 +5,26 @@ CC=${CC:-cc}
 TMP=${TMPDIR:-/tmp}/zhu-yin-native-tests
 mkdir -p "$TMP"
 $CC -std=c99 -O2 -D_POSIX_C_SOURCE=200809L -I Shared/Core Shared/Core/ZYDictionary.c Shared/Core/ZYEngine.c Shared/Tests/test_engine.c -o "$TMP/test_engine"
+$CC -std=c99 -O2 -D_POSIX_C_SOURCE=200809L -I Shared/Core Shared/Core/ZYDictionary.c Shared/Tests/test_dictionary_v2_validation.c -o "$TMP/test_dictionary_v2_validation"
 $CC -std=c99 -O2 -D_POSIX_C_SOURCE=200809L -I Shared/Core Shared/Core/ZYLearning.c Shared/Tests/test_learning.c -o "$TMP/test_learning"
+$CC -std=c99 -O2 -D_POSIX_C_SOURCE=200809L -I Shared/Core Shared/Core/ZYLearning.c Shared/Tests/test_learning_v2_regressions.c -o "$TMP/test_learning_v2_regressions"
+$CC -std=c99 -O2 -D_POSIX_C_SOURCE=200809L -I Shared/Core Shared/Core/ZYLearning.c Shared/Tests/test_learning_v2_migration.c -o "$TMP/test_learning_v2_migration"
 $CC -std=c99 -O2 -D_POSIX_C_SOURCE=200809L -I Shared/Core Shared/Core/ZYDictionary.c Shared/Core/ZYEngine.c Shared/Tests/test_candidate_learning_ranking.c -o "$TMP/test_candidate_learning_ranking"
 $CC -std=c99 -O2 -D_POSIX_C_SOURCE=200809L -I Shared/Core Shared/Core/ZYDictionary.c Shared/Core/ZYEngine.c Shared/Tests/test_candidate_length_policy.c -o "$TMP/test_candidate_length_policy"
 $CC -std=c99 -O2 -D_POSIX_C_SOURCE=200809L -I Shared/Core Shared/Core/ZYDictionary.c Shared/Core/ZYEngine.c Shared/Core/ZYComposer.c Shared/Tests/test_composer.c -o "$TMP/test_composer"
 $CC -std=c99 -O2 -D_POSIX_C_SOURCE=200809L -I Shared/Core Shared/Core/ZYDictionary.c Shared/Core/ZYEngine.c Shared/Core/ZYComposer.c Shared/Tests/test_composer_workspace.c -o "$TMP/test_composer_workspace"
+$CC -std=c99 -O2 -D_POSIX_C_SOURCE=200809L -I Shared/Core Shared/Core/ZYDictionary.c Shared/Core/ZYEngine.c Shared/Core/ZYComposer.c Shared/Tests/test_lookup_optimization.c -o "$TMP/test_lookup_optimization"
 $CC -std=c99 -O2 -I Shared/Core Shared/Core/ZYConversion.c Shared/Tests/test_conversion.c -o "$TMP/test_conversion"
 "$TMP/test_engine" Shared/Resources/dictionary.bin
+"$TMP/test_dictionary_v2_validation" Shared/Resources/dictionary.bin "$TMP/dictionary-corrupt.bin"
 "$TMP/test_learning" "$TMP/learning"
+"$TMP/test_learning_v2_regressions" "$TMP/learning-v2-regressions"
+"$TMP/test_learning_v2_migration" "$TMP/learning-v2-migration"
 "$TMP/test_candidate_learning_ranking"
 "$TMP/test_candidate_length_policy"
 "$TMP/test_composer" Shared/Resources/dictionary.bin
 "$TMP/test_composer_workspace" Shared/Resources/dictionary.bin
+"$TMP/test_lookup_optimization" Shared/Resources/dictionary.bin
 "$TMP/test_conversion" Shared/Resources/t2s.bin
 echo "All native C core tests: OK"
 if command -v python3 >/dev/null 2>&1; then
@@ -26,11 +34,17 @@ if command -v python3 >/dev/null 2>&1; then
   python3 Tests/test_caret_o1_static.py
   python3 Tests/test_popup_preedit_static.py
   python3 Tests/test_web_chat_ime_composition_static.py
+  python3 Tests/test_strict_return_guard_static.py
+python3 Tests/test_return_guard_agent_mode_static.py
+  python3 Tests/test_return_guard_diagnostic_static.py
   python3 Tests/test_html_enter_flow_native_port_static.py
   python3 Tests/test_current_version_static.py
   python3 Tests/test_script_toggle_static.py
   python3 Tests/test_shortcuts_static.py
   python3 Tests/test_learning_ranking_static.py
+  python3 Tests/test_learning_v2_runtime_static.py
+  python3 Tests/test_runtime_learning_lock_static.py
+  python3 Tests/test_dictionary_v2_static.py
   python3 Tests/test_native_length_policy_static.py
   python3 Tests/test_composition_runtime_static.py
   python3 Tests/test_composition_controller_static.py
@@ -44,6 +58,8 @@ if command -v python3 >/dev/null 2>&1; then
   python3 Tests/test_adaptive_candidate_layout_static.py
   python3 Tests/test_quick_help_static.py
   python3 Tests/test_quick_help_card_style_static.py
+  python3 Tests/test_settings_panel_static.py
+  python3 Tests/test_quick_enter_confirm_mode_static.py
   python3 Tests/test_clear_learning_static.py
   python3 Tests/test_clear_learning_nonmodal_static.py
   python3 Tests/test_clear_learning_bottom_anchor_static.py
@@ -64,7 +80,9 @@ if command -v python3 >/dev/null 2>&1; then
   python3 Tests/test_html_shift_english_static.py
   python3 Tests/test_html_special_candidates_static.py
   python3 Tests/test_html_native_keyboard_parity_static.py
+  python3 Tests/test_html_dictionary_payload.py
   python3 Tests/test_learned_abbreviation_recall_static.py
+  python3 Tests/test_geographic_words.py
   python3 Tests/test_brand_word.py
   python3 Tests/test_brand_recall_static.py
   python3 Tests/test_shared_platform_boundary.py

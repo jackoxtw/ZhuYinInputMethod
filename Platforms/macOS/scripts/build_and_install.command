@@ -92,7 +92,26 @@ else
   warn "找不到 python3，改用 ZIP 內建台灣核心修正版詞庫。"
 fi
 
-# Re-apply built-in project words after any Taiwan reading overlay. The bundled
+# Rebuild and inject the compact geographic proper-noun layer after any Taiwan
+# reading overlay. The bundled fallback dictionary already contains the same
+# words, so systems without Python/network still keep the full place-name set.
+GEO_WORDS_TMP="$BUILD/geographic_words.csv"
+GEO_DICT_TMP="$BUILD/dictionary.geo.bin"
+if [[ -n "$PYTHON3" ]] && "$PYTHON3" Shared/Tools/build_geographic_words.py \
+    "$DICT_FOR_BUILD" Shared/Resources/taiwan_admin_divisions.csv \
+    Shared/Resources/common_country_region_names.csv "$GEO_WORDS_TMP" \
+    --roads-csv Shared/Resources/taiwan_road_main_names.csv \
+    --stations-csv Shared/Resources/taiwan_transit_stations.csv \
+    --airports-csv Shared/Resources/taiwan_airports.csv && \
+    "$PYTHON3" Shared/Tools/inject_dictionary_words.py \
+    "$DICT_FOR_BUILD" "$GEO_WORDS_TMP" "$GEO_DICT_TMP"; then
+  DICT_FOR_BUILD="$GEO_DICT_TMP"
+  success "已套用台灣行政區／國家地名／道路主名稱／軌道車站／機場詞庫"
+else
+  [[ -n "$PYTHON3" ]] && warn "地名／交通詞庫重建失敗，沿用 ZIP 內建詞庫。"
+fi
+
+# Re-apply built-in project words after Taiwan/geographic overlays. The bundled
 # fallback dictionary already contains them, so systems without Python still
 # keep the same brand vocabulary.
 BRAND_TMP="$BUILD/dictionary.brand.bin"
@@ -192,6 +211,7 @@ xcrun clang "${OBJCFLAGS[@]}" -c Platforms/macOS/App/main.m -o "$OBJ/main.o"
 xcrun clang++ "${OBJCFLAGS[@]}" -std=c++17 -c Platforms/macOS/App/ZYRuntime.mm -o "$OBJ/ZYRuntime.o"
 xcrun clang++ "${OBJCFLAGS[@]}" -std=c++17 -c Platforms/macOS/App/ZYCandidatePanel.mm -o "$OBJ/ZYCandidatePanel.o"
 xcrun clang++ "${OBJCFLAGS[@]}" -std=c++17 -c Platforms/macOS/App/ZYAccessibilityCaret.mm -o "$OBJ/ZYAccessibilityCaret.o"
+xcrun clang++ "${OBJCFLAGS[@]}" -std=c++17 -c Platforms/macOS/App/ZYReturnGuard.mm -o "$OBJ/ZYReturnGuard.o"
 xcrun clang++ "${OBJCFLAGS[@]}" -std=c++17 -c Platforms/macOS/App/ZYInputController.mm -o "$OBJ/ZYInputController.o"
 
 xcrun clang++ -arch "$ARCH" -mmacosx-version-min=12.0 -Wl,-dead_strip \
@@ -238,14 +258,29 @@ fi
 
 step "7/7 安裝與重新註冊輸入法"
 notice "接下來可能要求輸入 macOS 管理員密碼。"
-# 系統層是唯一正式安裝位置；先解除註冊並清理舊的系統層／使用者層副本。
+# 系統層是唯一正式安裝位置；先安全結束舊程序，再解除註冊並清理舊副本。
 DEST="/Library/Input Methods/逐音輸入法.app"
 LEGACY_USER_DEST="$HOME/Library/Input Methods/逐音輸入法.app"
 LEGACY_USER_V2="$HOME/Library/Input Methods/逐音輸入法2.app"
 LEGACY_SYSTEM_V2="/Library/Input Methods/逐音輸入法2.app"
 sudo -v
 
-# 1. 先解除註冊建置目錄及舊版副本。
+# 1. 在替換舊 App 之前，先讓目前執行中的輸入法正常結束。
+#    這樣舊程序仍能從原 bundle 執行 applicationWillTerminate，將尚未
+#    落盤的學習資料寫回；只有真的卡住時才使用 TERM/KILL。
+graceful_stop_ime(){
+  /usr/bin/osascript -e 'tell application id "tw.zhuyin.inputmethod.v3" to quit' >/dev/null 2>&1 || true
+  for _ in 1 2 3 4 5; do
+    pgrep -x ZhuYinInputMethod >/dev/null 2>&1 || return 0
+    sleep 0.2
+  done
+  killall -TERM ZhuYinInputMethod 逐音輸入法 逐音輸入法2 2>/dev/null || true
+  sleep 0.5
+  pgrep -x ZhuYinInputMethod >/dev/null 2>&1 && killall -KILL ZhuYinInputMethod 2>/dev/null || true
+}
+graceful_stop_ime
+
+# 2. 解除註冊建置目錄及舊版副本。
 LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 if [[ -f "$LSREGISTER" ]]; then
   "$LSREGISTER" -u "$APP" 2>/dev/null || true
@@ -265,17 +300,16 @@ xattr -cr "$APP"
 sudo cp -R "$APP" "$DEST"
 /usr/bin/codesign --verify --deep --strict "$DEST"
 
-# 1. 向 LaunchServices 註冊唯一的系統層安裝檔。
+# 3. 向 LaunchServices 註冊唯一的系統層安裝檔。
 if [[ -f "$LSREGISTER" ]]; then
   "$LSREGISTER" -f "$DEST" 2>/dev/null || true
 fi
 
-# 2. 強制在背景啟動一次輸入法 App 服務以建立 IPC 連線與服務綁定
-killall -9 ZhuYinInputMethod 逐音輸入法 逐音輸入法2 2>/dev/null || true
+# 4. 啟動新版輸入法。
 open "$DEST"
 sleep 1
 
-# 3. 重啟系統層級的 AppleSpell 與 InputMethodKit 快取
+# 5. 重啟系統層級的 AppleSpell 與 InputMethodKit 快取
 killall -9 AppleSpell InputMethodKit TextInputMenuAgent TextInputSwitcher 2>/dev/null || true
 
 echo

@@ -13,7 +13,8 @@ assert 'attributesForCharacterIndex:' in controller, 'must query IMKTextInput li
 assert 'lineHeightRectangle:' in controller, 'must obtain the IMK line-height caret rectangle'
 assert 'NSEvent.mouseLocation' not in controller, 'mouse location must never be used as text caret fallback'
 assert controller.index('attributesForCharacterIndex:') < controller.index('firstRectForCharacterRange:'), 'IMK lineHeightRectangle must be the primary caret source'
-assert 'if(cursor>0) cursor--;' in controller, 'end-of-inline-session lookup must step onto the last real character'
+assert 'NSUInteger inlineIndex=0;' in controller, 'IMK lookup must default to relative inline index 0/current selection'
+assert 'inlineIndex=marked.length-1;' in controller, 'active inline sessions must use a relative index, never a document-absolute range location'
 assert 'for(;cursor>=0;cursor--)' not in controller, 'caret lookup must not scan backward through preedit characters'
 assert '@autoreleasepool' in controller[controller.index('- (NSRect)clientRect:(id)client'):controller.index('- (void)updateMarked:')], 'caret lookup should release temporary AppKit objects promptly'
 assert '!(fabs(rect.origin.x)<0.5 && fabs(rect.origin.y)<0.5)' in controller, 'a synthetic (0,0) rect must not be accepted as a real caret'
@@ -33,5 +34,18 @@ assert 'NSPointInRect' in panel
 
 # Candidate panel should keep its normal size (subject only to visible-frame maximum),
 # anchor to the caret, and flip vertically when the lower side has no room.
-assert 'placeBelow' in panel
+assert 'fitsBelow' in panel and 'fitsAbove' in panel
 assert 'NSMinY(rect)' in panel and 'NSMaxY(rect)' in panel
+
+# Horizontal placement must mirror the vertical flip behavior.  When the panel
+# does not fit to the right of the caret, it should first try the caret's left
+# side before falling back to visible-frame clamping.  This keeps the nearest
+# panel corner within the normal 6pt caret gap instead of pinning the panel to
+# the screen edge.
+assert 'rightX=NSMaxX(rect)+gap' in panel
+assert 'leftX=NSMinX(rect)-gap-size.width' in panel
+assert 'fitsRight' in panel and 'fitsLeft' in panel
+assert 'if(fitsRight)' in panel and 'else if(fitsLeft)' in panel
+assert 'belowY=NSMinY(rect)-gap-size.height' in panel
+assert 'aboveY=NSMaxY(rect)+gap' in panel
+assert 'fitsBelow' in panel and 'fitsAbove' in panel

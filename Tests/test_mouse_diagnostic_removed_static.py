@@ -1,7 +1,7 @@
 from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 files = [root/'Platforms'/'macOS'/'App'/'ZYCandidatePanel.mm', root/'Platforms'/'macOS'/'App'/'ZYInputController.mm']
-text = '\n'.join(p.read_text(encoding='utf-8') for p in files)
+text = '\n'.join(path.read_text(encoding='utf-8') for path in files)
 assert '/tmp/zhu-yin-mouse.log' not in text
 assert 'ZYTraceMouse' not in text
 assert 'ZYTraceMouseState' not in text
@@ -12,5 +12,6 @@ assert '- (void)mouseDown:(NSEvent *)event' in panel
 assert '[self.panel candidateViewDidChooseIndex:idx]' in panel
 assert '[self.panel candidateViewToggleScript]' in panel
 assert '[self.panel candidateViewToggleHelp]' in panel
-assert '[self.panel candidateViewRequestClearLearning]' in panel
+assert '[self.panel candidateViewToggleSettings]' in panel
+assert '[self.owner candidateViewRequestClearLearning]' in panel
 print('mouse diagnostics removed static: OK')

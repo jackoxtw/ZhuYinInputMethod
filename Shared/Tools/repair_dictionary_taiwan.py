@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Overlay Taiwan single-character readings onto an existing ZYDICT1 dictionary.
+"""Overlay Taiwan single-character readings onto an existing ZYDICT1/ZYDICT2 dictionary.
 
 Existing word IDs are preserved.  When a character has multiple Taiwan readings,
 the existing ID keeps its matching reading (or is reassigned to the first Taiwan
@@ -15,7 +15,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
-MAGIC = b"ZYDICT1\0"
+MAGIC = b"ZYDICT2\0"
 FMT = "<8sIIIIII" + "Q" * 15
 HEADER_SIZE = struct.calcsize(FMT)
 
@@ -43,7 +43,7 @@ def read_dictionary(path: Path) -> tuple[list[Entry], list[str]]:
      syllable_ids_off, syllable_ids_count, weights_off, syllable_pool_off, syllable_pool_size,
      syllable_offsets_off, bucket_symbols_off, bucket_offsets_off, bucket_word_ids_off,
      bucket_word_ids_count) = h
-    if not magic.startswith(b"ZYDICT1") or version != 1 or header_size != HEADER_SIZE or file_size != len(data):
+    if not ((magic.startswith(b"ZYDICT1") and version == 1) or (magic.startswith(b"ZYDICT2") and version == 2)) or header_size != HEADER_SIZE or file_size != len(data):
         raise ValueError(f"unsupported or damaged dictionary: {path}")
 
     word_offsets = _unpack_u32(data, word_offsets_off, word_count + 1)
@@ -242,7 +242,7 @@ def write_dictionary(path: Path, entries: list[Entry], original_syllables: list[
     indexed_word_count = sum(1 for e in entries if e.pron)
 
     header = struct.pack(
-        FMT, MAGIC, 1, HEADER_SIZE, len(entries), indexed_word_count, len(syllables), len(bucket_symbols),
+        FMT, MAGIC, 2, HEADER_SIZE, len(entries), indexed_word_count, len(syllables), len(bucket_symbols),
         file_size, word_pool_off, word_pool_size, word_offsets_off, pron_offsets_off,
         syllable_ids_off, syllable_ids_count, weights_off, syllable_pool_off, syllable_pool_size,
         syllable_offsets_off, bucket_symbols_off, bucket_offsets_off, bucket_word_ids_off, bucket_word_ids_count,

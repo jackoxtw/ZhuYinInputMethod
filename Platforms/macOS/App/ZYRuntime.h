@@ -19,6 +19,7 @@ int ZYRuntimeCandidatePron(uint32_t candidateID,char *out,size_t cap);
 int ZYRuntimeCandidateWord(uint32_t candidateID,char *out,size_t cap);
 NSString *ZYRuntimeOutputString(NSString *traditional,BOOL simplified);
 void ZYRuntimeMaybeFlush(void);
+void ZYRuntimeForceFlush(void);
 BOOL ZYRuntimeClearLearning(void);
 uint32_t ZYRuntimeQueryHash(const char *query);
 

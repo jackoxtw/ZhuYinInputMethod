@@ -1,0 +1,16 @@
+逐音輸入法 v0.1.72 / build 75
+================================
+
+本版針對 build 72～74 在瀏覽器診斷頁仍可看到組字 Enter 的實機結果，將 Return Guard 從全域 session tap 改為「per-PID 優先」三層路由。
+
+核心修正：
+1. 優先使用 CGEventTapCreateForPid(frontmostPID) 攔截準備送往目前 App 的鍵盤事件。
+2. per-PID 不可用時自動退回 kCGAnnotatedSessionEventTap，再退回 kCGSessionEventTap。
+3. 設定頁顯示實際路徑與 PID，並保留 Tap / Enter / armed / drop 計數。
+4. tap 維持專用 CFRunLoop thread 與常駐 pass-through；只有組字中的 Return / Keypad Enter 被刪除。
+5. 被刪除的 Return 仍由既有 consumeReturnWhileComposing: 狀態機在 main queue 執行，不另做候選邏輯。
+
+實機驗證目標：
+- 組字狀態按 Enter 時，設定頁 drop down/up 應增加。
+- 診斷頁不應看到該次用於確認候選的 Enter keydown/keyup。
+- 組字結束後下一次 Enter 應正常送到網頁。

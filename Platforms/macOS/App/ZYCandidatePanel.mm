@@ -1,4 +1,5 @@
 #import "ZYCandidatePanel.h"
+#import "ZYReturnGuard.h"
 #import <dispatch/dispatch.h>
 #include <math.h>
 #include <string.h>
@@ -6,6 +7,7 @@
 static const CGFloat ZYPreeditHeaderHeight=34.0;
 static const CGFloat ZYPreeditZhuyinColumnX=502.0;
 static const CGFloat ZYPreeditZhuyinColumnWidth=220.0;
+static NSString *const ZYQuickEnterConfirmKey=@"ZYQuickEnterConfirm";
 
 @interface ZYHelpPanel : NSPanel
 @end
@@ -80,7 +82,7 @@ static const CGFloat ZYPreeditZhuyinColumnWidth=220.0;
 
     NSRect bottom=self.helpBottomCloseRect;
     NSDictionary *versionAttrs=@{NSFontAttributeName:[NSFont monospacedSystemFontOfSize:11 weight:NSFontWeightMedium],NSForegroundColorAttributeName:[NSColor colorWithWhite:.55 alpha:1]};
-    [@"v0.1.59" drawAtPoint:NSMakePoint(24,NSMidY(bottom)-6) withAttributes:versionAttrs];
+    [@"v0.1.72" drawAtPoint:NSMakePoint(24,NSMidY(bottom)-6) withAttributes:versionAttrs];
     [[NSColor colorWithWhite:.25 alpha:1] setFill];
     [[NSBezierPath bezierPathWithRoundedRect:bottom xRadius:8 yRadius:8] fill];
     NSDictionary *buttonAttrs=@{NSFontAttributeName:[NSFont systemFontOfSize:13 weight:NSFontWeightSemibold],NSForegroundColorAttributeName:NSColor.whiteColor};
@@ -96,8 +98,146 @@ static const CGFloat ZYPreeditZhuyinColumnWidth=220.0;
 }
 @end
 
-@interface ZYCandidatePanel (ZYClearLearningInternal)
+@interface ZYCandidatePanel (ZYAuxiliaryInternal)
+- (void)candidateViewRequestClearLearning;
 - (void)candidateViewConfirmClearLearning;
+@end
+
+@interface ZYSettingsPanel : NSPanel
+@end
+@implementation ZYSettingsPanel
+- (BOOL)canBecomeKeyWindow{return YES;}
+- (BOOL)canBecomeMainWindow{return NO;}
+@end
+
+@interface ZYSettingsView : NSView
+@property(nonatomic,weak) ZYCandidatePanel *owner;
+@end
+
+@implementation ZYSettingsView
+- (BOOL)isFlipped{return YES;}
+- (BOOL)acceptsFirstMouse:(NSEvent *)event{(void)event;return YES;}
+- (BOOL)needsPanelToBecomeKey{return NO;}
+- (BOOL)acceptsFirstResponder{return NO;}
+- (BOOL)mouseDownCanMoveWindow{return NO;}
+- (NSRect)closeRect{return NSMakeRect(397,14,25,25);}
+- (NSRect)safeModeRect{return NSMakeRect(24,132,188,38);}
+- (NSRect)quickModeRect{return NSMakeRect(224,132,192,38);}
+- (NSRect)strictGuardRect{return NSMakeRect(24,244,188,38);}
+- (NSRect)guardPermissionRect{return NSMakeRect(224,244,192,38);}
+- (NSRect)clearLearningRect{return NSMakeRect(238,401,170,36);}
+- (BOOL)quickConfirmEnabled{return [[NSUserDefaults standardUserDefaults] boolForKey:ZYQuickEnterConfirmKey];}
+- (BOOL)strictGuardEnabled{return ZYReturnGuardPreferenceEnabled();}
+- (void)setStrictGuardEnabled:(BOOL)enabled{
+    NSUserDefaults *defaults=[NSUserDefaults standardUserDefaults];
+    [defaults setBool:enabled forKey:ZYStrictReturnGuardKey];
+    [defaults synchronize];
+    ZYReturnGuardRefresh();
+    [self setNeedsDisplay:YES];
+}
+- (void)setQuickConfirmEnabled:(BOOL)enabled{
+    NSUserDefaults *defaults=[NSUserDefaults standardUserDefaults];
+    [defaults setBool:enabled forKey:ZYQuickEnterConfirmKey];
+    [defaults synchronize];
+    [self setNeedsDisplay:YES];
+}
+- (void)drawModeButton:(NSString *)title rect:(NSRect)rect selected:(BOOL)selected{
+    NSColor *fill=selected?[NSColor colorWithRed:.17 green:.31 blue:.47 alpha:1]:[NSColor colorWithWhite:.18 alpha:1];
+    NSColor *stroke=selected?[NSColor colorWithRed:.42 green:.68 blue:.96 alpha:1]:[NSColor colorWithWhite:.29 alpha:1];
+    [fill setFill];NSBezierPath *path=[NSBezierPath bezierPathWithRoundedRect:rect xRadius:8 yRadius:8];[path fill];
+    [stroke setStroke];path.lineWidth=selected?1.5:1.0;[path stroke];
+    NSDictionary *attrs=@{NSFontAttributeName:[NSFont systemFontOfSize:12.5 weight:NSFontWeightSemibold],NSForegroundColorAttributeName:selected?NSColor.whiteColor:[NSColor colorWithWhite:.83 alpha:1]};
+    NSString *mark=selected?@"●":@"○";NSString *text=[NSString stringWithFormat:@"%@  %@",mark,title];NSSize size=[text sizeWithAttributes:attrs];
+    [text drawAtPoint:NSMakePoint(NSMidX(rect)-size.width/2,NSMidY(rect)-size.height/2) withAttributes:attrs];
+}
+- (void)drawRect:(NSRect)dirty{
+    [super drawRect:dirty];
+    [[NSColor colorWithWhite:.10 alpha:.985] setFill];
+    [[NSBezierPath bezierPathWithRoundedRect:self.bounds xRadius:12 yRadius:12] fill];
+
+    NSDictionary *title=@{NSFontAttributeName:[NSFont systemFontOfSize:16 weight:NSFontWeightBold],NSForegroundColorAttributeName:[NSColor colorWithRed:.62 green:.80 blue:1 alpha:1]};
+    NSDictionary *subtitle=@{NSFontAttributeName:[NSFont systemFontOfSize:12.5],NSForegroundColorAttributeName:[NSColor colorWithWhite:.78 alpha:1]};
+    [@"逐音輸入法設定" drawAtPoint:NSMakePoint(24,18) withAttributes:title];
+    [@"設定" drawAtPoint:NSMakePoint(24,43) withAttributes:subtitle];
+
+    NSRect close=self.closeRect;
+    [[NSColor colorWithWhite:.20 alpha:1] setFill];
+    [[NSBezierPath bezierPathWithRoundedRect:close xRadius:7 yRadius:7] fill];
+    NSDictionary *closeAttrs=@{NSFontAttributeName:[NSFont systemFontOfSize:15 weight:NSFontWeightMedium],NSForegroundColorAttributeName:[NSColor colorWithWhite:.82 alpha:1]};
+    NSString *closeText=@"×";NSSize closeSize=[closeText sizeWithAttributes:closeAttrs];
+    [closeText drawAtPoint:NSMakePoint(NSMidX(close)-closeSize.width/2,NSMidY(close)-closeSize.height/2-1) withAttributes:closeAttrs];
+
+    [[NSColor colorWithWhite:.23 alpha:1] setStroke];
+    NSBezierPath *divider=[NSBezierPath bezierPath];[divider moveToPoint:NSMakePoint(24,68)];[divider lineToPoint:NSMakePoint(416,68)];[divider stroke];
+
+    NSDictionary *section=@{NSFontAttributeName:[NSFont systemFontOfSize:13.5 weight:NSFontWeightSemibold],NSForegroundColorAttributeName:NSColor.whiteColor};
+    NSDictionary *body=@{NSFontAttributeName:[NSFont systemFontOfSize:12.5],NSForegroundColorAttributeName:[NSColor colorWithWhite:.76 alpha:1]};
+    NSDictionary *note=@{NSFontAttributeName:[NSFont systemFontOfSize:11.5],NSForegroundColorAttributeName:[NSColor colorWithWhite:.61 alpha:1]};
+
+    [@"輸入行為" drawAtPoint:NSMakePoint(24,84) withAttributes:section];
+    [@"Enter 確認模式" drawAtPoint:NSMakePoint(24,108) withAttributes:body];
+    BOOL quick=self.quickConfirmEnabled;
+    [self drawModeButton:@"瀏覽器安全模式" rect:self.safeModeRect selected:!quick];
+    [self drawModeButton:@"快速確認模式" rect:self.quickModeRect selected:quick];
+    NSString *modeHelp=quick?@"最後一段候選選定時同時提交中文；Enter 仍由輸入法處理。":@"選完候選後，再按一次 Enter 才提交中文；標準 IMK 最保守。";
+    [modeHelp drawAtPoint:NSMakePoint(24,184) withAttributes:note];
+
+    NSBezierPath *divider2=[NSBezierPath bezierPath];[divider2 moveToPoint:NSMakePoint(24,214)];[divider2 lineToPoint:NSMakePoint(416,214)];[divider2 stroke];
+    [@"網頁聊天防誤送" drawAtPoint:NSMakePoint(24,224) withAttributes:section];
+    BOOL strict=self.strictGuardEnabled;
+    [self drawModeButton:@"完整防誤送" rect:self.strictGuardRect selected:strict];
+
+    BOOL trusted=ZYReturnGuardHasAccessibility();
+    NSRect permission=self.guardPermissionRect;
+    NSColor *permissionFill=trusted?[NSColor colorWithRed:.16 green:.34 blue:.22 alpha:1]:[NSColor colorWithWhite:.18 alpha:1];
+    [permissionFill setFill];
+    NSBezierPath *permissionPath=[NSBezierPath bezierPathWithRoundedRect:permission xRadius:8 yRadius:8];[permissionPath fill];
+    [[NSColor colorWithWhite:.31 alpha:1] setStroke];[permissionPath stroke];
+    NSDictionary *permissionAttrs=@{NSFontAttributeName:[NSFont systemFontOfSize:12.5 weight:NSFontWeightSemibold],NSForegroundColorAttributeName:NSColor.whiteColor};
+    NSString *permissionText=trusted?@"✓ 輔助使用已授權":@"授權輔助使用";NSSize permissionSize=[permissionText sizeWithAttributes:permissionAttrs];
+    [permissionText drawAtPoint:NSMakePoint(NSMidX(permission)-permissionSize.width/2,NSMidY(permission)-permissionSize.height/2) withAttributes:permissionAttrs];
+    [ZYReturnGuardStatusText() drawAtPoint:NSMakePoint(24,290) withAttributes:note];
+    [ZYReturnGuardRouteText() drawAtPoint:NSMakePoint(24,307) withAttributes:note];
+    NSString *guardCounters=[NSString stringWithFormat:@"Tap %llu/%llu · Enter %llu/%llu · armed %llu · drop %llu/%llu",
+        (unsigned long long)ZYReturnGuardObservedDownCount(),
+        (unsigned long long)ZYReturnGuardObservedUpCount(),
+        (unsigned long long)ZYReturnGuardReturnDownSeenCount(),
+        (unsigned long long)ZYReturnGuardReturnUpSeenCount(),
+        (unsigned long long)ZYReturnGuardArmedReturnDownCount(),
+        (unsigned long long)ZYReturnGuardSuppressedDownCount(),
+        (unsigned long long)ZYReturnGuardSuppressedUpCount()];
+    [guardCounters drawAtPoint:NSMakePoint(24,324) withAttributes:note];
+
+    NSBezierPath *divider3=[NSBezierPath bezierPath];[divider3 moveToPoint:NSMakePoint(24,343)];[divider3 lineToPoint:NSMakePoint(416,343)];[divider3 stroke];
+    [@"學習資料" drawAtPoint:NSMakePoint(24,359) withAttributes:section];
+    [@"清除所有選字、常用詞頻與自訂學習資料。" drawAtPoint:NSMakePoint(24,383) withAttributes:body];
+
+    NSRect clear=self.clearLearningRect;
+    [[NSColor colorWithRed:.43 green:.16 blue:.16 alpha:1] setFill];
+    [[NSBezierPath bezierPathWithRoundedRect:clear xRadius:8 yRadius:8] fill];
+    NSDictionary *button=@{NSFontAttributeName:[NSFont systemFontOfSize:12.5 weight:NSFontWeightSemibold],NSForegroundColorAttributeName:[NSColor colorWithRed:1 green:.84 blue:.84 alpha:1]};
+    NSString *label=@"清除學習資料";NSSize size=[label sizeWithAttributes:button];
+    [label drawAtPoint:NSMakePoint(NSMidX(clear)-size.width/2,NSMidY(clear)-size.height/2) withAttributes:button];
+}
+- (void)mouseDown:(NSEvent *)event{
+    NSPoint p=[self convertPoint:event.locationInWindow fromView:nil];
+    if(NSPointInRect(p,self.closeRect)){[self.owner closeSettings];return;}
+    if(NSPointInRect(p,self.safeModeRect)){[self setQuickConfirmEnabled:NO];return;}
+    if(NSPointInRect(p,self.quickModeRect)){[self setQuickConfirmEnabled:YES];return;}
+    if(NSPointInRect(p,self.strictGuardRect)){[self setStrictGuardEnabled:!self.strictGuardEnabled];return;}
+    if(NSPointInRect(p,self.guardPermissionRect)){
+        [self setStrictGuardEnabled:YES];
+        if(ZYReturnGuardHasAccessibility()){
+            ZYReturnGuardEnsureStarted();
+            ZYReturnGuardRefresh();
+        }else{
+            ZYReturnGuardRequestAccessibility();
+        }
+        [self setNeedsDisplay:YES];
+        return;
+    }
+    if(NSPointInRect(p,self.clearLearningRect)){[self.owner candidateViewRequestClearLearning];return;}
+}
 @end
 
 @interface ZYClearLearningPanel : NSPanel
@@ -172,6 +312,7 @@ typedef NS_ENUM(NSUInteger, ZYClearLearningViewState){
 - (void)candidateViewDidDeleteIndex:(NSUInteger)index;
 - (void)candidateViewToggleScript;
 - (void)candidateViewToggleHelp;
+- (void)candidateViewToggleSettings;
 - (void)candidateViewRequestClearLearning;
 - (void)candidateViewConfirmClearLearning;
 - (void)resizeForRows:(NSUInteger)rows;
@@ -279,6 +420,12 @@ static NSDictionary *ZYClearLearningLabelAttributes(void){
     return attrs;
 }
 
+static NSDictionary *ZYSettingsLabelAttributes(void){
+    static NSDictionary *attrs=nil;static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{ attrs=@{NSFontAttributeName:[NSFont systemFontOfSize:10 weight:NSFontWeightSemibold],NSForegroundColorAttributeName:[NSColor colorWithWhite:.88 alpha:1]}; });
+    return attrs;
+}
+
 static NSDictionary *ZYPreeditLabelAttributes(void){
     static NSDictionary *attrs=nil;static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{ attrs=@{NSFontAttributeName:[NSFont systemFontOfSize:10 weight:NSFontWeightSemibold],NSForegroundColorAttributeName:[NSColor colorWithWhite:.62 alpha:1]}; });
@@ -304,7 +451,7 @@ static NSDictionary *ZYPreeditTextAttributes(void){
 - (CGFloat)preeditHeaderHeight{return (self.preeditText.length||self.zhuyinText.length)?ZYPreeditHeaderHeight:0.0;}
 - (NSRect)scriptRect{return NSMakeRect(732,6,48,32);}
 - (NSRect)helpRect{return NSMakeRect(732,42,48,18);}
-- (NSRect)clearLearningRect{return NSMakeRect(732,MAX(86.0,NSHeight(self.bounds)-24.0),48,18);}
+- (NSRect)settingsRect{return NSMakeRect(732,MAX(86.0,NSHeight(self.bounds)-24.0),48,18);}
 
 - (void)prepareCandidateTextLayout{
     memset(_textFontSizes,0,sizeof(_textFontSizes));
@@ -430,28 +577,28 @@ static NSDictionary *ZYPreeditTextAttributes(void){
     NSString *helpLabel=@"說明";NSSize helpSize=[helpLabel sizeWithAttributes:helpAttrs];
     [helpLabel drawAtPoint:NSMakePoint(NSMidX(helpRect)-helpSize.width/2,NSMidY(helpRect)-helpSize.height/2) withAttributes:helpAttrs];
 
-    NSRect clearLearningRect=self.clearLearningRect;
-    CGFloat clearLearningGap=NSMinY(clearLearningRect)-NSMaxY(helpRect);
-    if(clearLearningGap>=18.0){
-        CGFloat clearLearningSeparator=NSMinY(clearLearningRect)-9.0;
+    NSRect settingsRect=self.settingsRect;
+    CGFloat settingsGap=NSMinY(settingsRect)-NSMaxY(helpRect);
+    if(settingsGap>=18.0){
+        CGFloat settingsSeparator=NSMinY(settingsRect)-9.0;
         [[NSColor colorWithWhite:.25 alpha:.75] setStroke];
         NSBezierPath *separator=[NSBezierPath bezierPath];
-        [separator moveToPoint:NSMakePoint(734,clearLearningSeparator)];
-        [separator lineToPoint:NSMakePoint(778,clearLearningSeparator)];
+        [separator moveToPoint:NSMakePoint(734,settingsSeparator)];
+        [separator lineToPoint:NSMakePoint(778,settingsSeparator)];
         [separator stroke];
     }
-    [[NSColor colorWithRed:.34 green:.16 blue:.16 alpha:1] setFill];
-    [[NSBezierPath bezierPathWithRoundedRect:clearLearningRect xRadius:6 yRadius:6] fill];
-    NSDictionary *clearAttrs=ZYClearLearningLabelAttributes();
-    NSString *clearLabel=@"清除學習";NSSize clearSize=[clearLabel sizeWithAttributes:clearAttrs];
-    [clearLabel drawAtPoint:NSMakePoint(NSMidX(clearLearningRect)-clearSize.width/2,NSMidY(clearLearningRect)-clearSize.height/2) withAttributes:clearAttrs];
+    [[NSColor colorWithWhite:.24 alpha:1] setFill];
+    [[NSBezierPath bezierPathWithRoundedRect:settingsRect xRadius:6 yRadius:6] fill];
+    NSDictionary *settingsAttrs=ZYSettingsLabelAttributes();
+    NSString *settingsLabel=@"設定";NSSize settingsSize=[settingsLabel sizeWithAttributes:settingsAttrs];
+    [settingsLabel drawAtPoint:NSMakePoint(NSMidX(settingsRect)-settingsSize.width/2,NSMidY(settingsRect)-settingsSize.height/2) withAttributes:settingsAttrs];
 }
 
 - (void)mouseDown:(NSEvent *)event{
     NSPoint p=[self convertPoint:event.locationInWindow fromView:nil];
     if(NSPointInRect(p,self.scriptRect)){[self.panel candidateViewToggleScript];return;}
     if(NSPointInRect(p,self.helpRect)){[self.panel candidateViewToggleHelp];return;}
-    if(NSPointInRect(p,self.clearLearningRect)){[self.panel candidateViewRequestClearLearning];return;}
+    if(NSPointInRect(p,self.settingsRect)){[self.panel candidateViewToggleSettings];return;}
     CGFloat cellW=720.0/self.columns,y0=self.preeditHeaderHeight+6;
     if(p.x<6||p.x>=726||p.y<y0||p.y>=y0+self.rowHeight*self.rows)return;
     NSUInteger row=(NSUInteger)((p.y-y0)/self.rowHeight),col=(NSUInteger)((p.x-6)/cellW),idx=row*self.columns+col;
@@ -459,7 +606,7 @@ static NSDictionary *ZYPreeditTextAttributes(void){
 }
 @end
 
-@implementation ZYCandidatePanel{ZYCandidateView *_cv;ZYHelpPanel *_helpPanel;ZYHelpView *_helpView;ZYClearLearningPanel *_clearLearningPanel;ZYClearLearningView *_clearLearningView;NSUInteger _clearLearningResultToken;}
+@implementation ZYCandidatePanel{ZYCandidateView *_cv;ZYHelpPanel *_helpPanel;ZYHelpView *_helpView;ZYSettingsPanel *_settingsPanel;ZYSettingsView *_settingsView;ZYClearLearningPanel *_clearLearningPanel;ZYClearLearningView *_clearLearningView;NSUInteger _clearLearningResultToken;}
 - (BOOL)canBecomeKeyWindow{return YES;}
 - (BOOL)canBecomeMainWindow{return NO;}
 - (instancetype)init{
@@ -509,7 +656,11 @@ static NSDictionary *ZYPreeditTextAttributes(void){
 - (void)candidateViewToggleHelp {
     [self.candidateDelegate candidatePanelToggleHelp];
 }
+- (void)candidateViewToggleSettings {
+    [self toggleSettings];
+}
 - (void)candidateViewRequestClearLearning {
+    [self closeSettings];
     [self.candidateDelegate candidatePanelRequestClearLearning];
 }
 - (void)candidateViewConfirmClearLearning {
@@ -551,6 +702,42 @@ static NSDictionary *ZYPreeditTextAttributes(void){
     _cv.rows=rows;[self resizeForRows:rows];[_cv prepareCandidateTextLayout];[_cv setNeedsDisplay:YES];
 }
 
+- (BOOL)settingsVisible{return _settingsPanel&&_settingsPanel.isVisible;}
+- (void)ensureSettingsPanel {
+    if(_settingsPanel)return;
+    _settingsPanel=[[ZYSettingsPanel alloc] initWithContentRect:NSMakeRect(0,0,440,455)
+                                                   styleMask:NSWindowStyleMaskBorderless|NSWindowStyleMaskNonactivatingPanel
+                                                     backing:NSBackingStoreBuffered defer:NO];
+    _settingsPanel.level=NSStatusWindowLevel+1;_settingsPanel.opaque=NO;_settingsPanel.backgroundColor=NSColor.clearColor;_settingsPanel.hasShadow=YES;_settingsPanel.hidesOnDeactivate=NO;_settingsPanel.ignoresMouseEvents=NO;_settingsPanel.becomesKeyOnlyIfNeeded=YES;
+    _settingsPanel.collectionBehavior=NSWindowCollectionBehaviorCanJoinAllSpaces|NSWindowCollectionBehaviorFullScreenAuxiliary;
+    _settingsView=[[ZYSettingsView alloc]initWithFrame:_settingsPanel.contentView.bounds];_settingsView.autoresizingMask=NSViewWidthSizable|NSViewHeightSizable;_settingsView.owner=self;
+    _settingsPanel.contentView=_settingsView;
+}
+- (void)positionSettings {
+    if(!_settingsPanel||!_settingsPanel.isVisible)return;
+    NSScreen *screen=self.screen?:NSScreen.mainScreen;NSRect vis=screen.visibleFrame;NSRect f=self.frame;NSSize ss=_settingsPanel.frame.size;
+    CGFloat gap=8.0,x=NSMaxX(f)+gap,y=NSMaxY(f)-ss.height;
+    if(x+ss.width>NSMaxX(vis)-6.0)x=MAX(NSMinX(vis)+6.0,NSMinX(f)-gap-ss.width);
+    if(y+ss.height>NSMaxY(vis)-6.0)y=NSMaxY(vis)-ss.height-6.0;
+    if(y<NSMinY(vis)+6.0)y=NSMinY(vis)+6.0;
+    [_settingsPanel setFrameOrigin:NSMakePoint(x,y)];
+}
+- (void)toggleSettings {
+    if(self.clearLearningConfirmationVisible)[self closeClearLearningConfirmation];
+    [self closeQuickHelp];
+    if(_settingsPanel&&_settingsPanel.isVisible){[self closeSettings];return;}
+    [self ensureSettingsPanel];[_settingsPanel orderFrontRegardless];[self positionSettings];
+}
+- (void)closeSettings {
+    if(!_settingsPanel)return;
+    _settingsView.owner=nil;
+    [_settingsPanel orderOut:nil];
+    [_settingsPanel close];
+    _settingsPanel.contentView=nil;
+    _settingsView=nil;
+    _settingsPanel=nil;
+}
+
 - (BOOL)clearLearningConfirmationVisible{return _clearLearningPanel&&_clearLearningPanel.isVisible;}
 - (void)ensureClearLearningPanel {
     if(_clearLearningPanel)return;
@@ -572,7 +759,7 @@ static NSDictionary *ZYPreeditTextAttributes(void){
     [_clearLearningPanel setFrameOrigin:NSMakePoint(x,y)];
 }
 - (void)showClearLearningConfirmation {
-    [self closeQuickHelp];[self ensureClearLearningPanel];_clearLearningResultToken++;
+    [self closeQuickHelp];[self closeSettings];[self ensureClearLearningPanel];_clearLearningResultToken++;
     _clearLearningView.state=ZYClearLearningViewStateConfirm;[_clearLearningView setNeedsDisplay:YES];
     [_clearLearningPanel orderFrontRegardless];[self positionClearLearningConfirmation];
 }
@@ -603,6 +790,7 @@ static NSDictionary *ZYPreeditTextAttributes(void){
 }
 - (void)toggleQuickHelp {
     if(self.clearLearningConfirmationVisible)[self closeClearLearningConfirmation];
+    [self closeSettings];
     if(_helpPanel&&_helpPanel.isVisible){[self closeQuickHelp];return;}
     if(!_helpPanel){
         _helpPanel=[[ZYHelpPanel alloc] initWithContentRect:NSMakeRect(0,0,440,460)
@@ -625,7 +813,7 @@ static NSDictionary *ZYPreeditTextAttributes(void){
     _helpPanel=nil;
 }
 - (void)orderOut:(id)sender{
-    [self closeQuickHelp];[self closeClearLearningConfirmation];
+    [self closeQuickHelp];[self closeSettings];[self closeClearLearningConfirmation];
     _cv.words=@[];_cv.modeLabel=@"";_cv.preeditText=@"";_cv.zhuyinText=@"";_cv.preeditLabel=@"";_cv.count=0;_cv.selected=0;
     _cv.columns=10;_cv.rowHeight=38;_cv.rows=2;[_cv prepareCandidateTextLayout];
     [super orderOut:sender];
@@ -639,18 +827,37 @@ static NSDictionary *ZYPreeditTextAttributes(void){
     NSSize preferred=NSMakeSize(786,NSHeight(self.frame));
     NSSize size=NSMakeSize(MIN(preferred.width,NSWidth(vis)-12.0),MIN(preferred.height,NSHeight(vis)-12.0));
     if(size.width<1.0||size.height<1.0){[self orderOut:nil];return;}
+
+    // Keep the candidate panel attached to the caret whenever possible.  Try
+    // the natural right/below placement first, then mirror around the caret
+    // before resorting to visible-frame clamping.  This prevents a wide panel
+    // from being pinned to the screen edge far away from the insertion caret.
     const CGFloat gap=6.0;
-    CGFloat x=NSMaxX(rect)+gap;
-    if(x+size.width>NSMaxX(vis)-6.0)x=NSMaxX(vis)-size.width-6.0;
-    if(x<NSMinX(vis)+6.0)x=NSMinX(vis)+6.0;
-    BOOL placeBelow=(NSMinY(rect)-gap-size.height)>=NSMinY(vis)+6.0;
-    CGFloat y=placeBelow?NSMinY(rect)-gap-size.height:NSMaxY(rect)+gap;
-    if(y+size.height>NSMaxY(vis)-6.0)y=NSMaxY(vis)-size.height-6.0;
-    if(y<NSMinY(vis)+6.0)y=NSMinY(vis)+6.0;
+    const CGFloat margin=6.0;
+
+    CGFloat rightX=NSMaxX(rect)+gap;
+    CGFloat leftX=NSMinX(rect)-gap-size.width;
+    BOOL fitsRight=(rightX+size.width)<=NSMaxX(vis)-margin;
+    BOOL fitsLeft=leftX>=NSMinX(vis)+margin;
+    CGFloat x;
+    if(fitsRight)x=rightX;
+    else if(fitsLeft)x=leftX;
+    else x=MIN(MAX(rightX,NSMinX(vis)+margin),NSMaxX(vis)-size.width-margin);
+
+    CGFloat belowY=NSMinY(rect)-gap-size.height;
+    CGFloat aboveY=NSMaxY(rect)+gap;
+    BOOL fitsBelow=belowY>=NSMinY(vis)+margin;
+    BOOL fitsAbove=(aboveY+size.height)<=NSMaxY(vis)-margin;
+    CGFloat y;
+    if(fitsBelow)y=belowY;
+    else if(fitsAbove)y=aboveY;
+    else y=MIN(MAX(belowY,NSMinY(vis)+margin),NSMaxY(vis)-size.height-margin);
+
     NSRect targetFrame=NSMakeRect(x,y,size.width,size.height);
     if(!NSEqualRects(self.frame,targetFrame))[self setFrame:targetFrame display:NO];
     if(!self.isVisible)[self orderFront:nil];
     [self positionQuickHelp];
+    [self positionSettings];
     [self positionClearLearningConfirmation];
 }
 @end

@@ -2,7 +2,7 @@
 import argparse, base64, json, struct
 from pathlib import Path
 
-MAGIC=b'ZYDICT1\0'
+MAGIC=b'ZYDICT2\0'
 FMT='<8sIIIIII' + 'Q'*15
 HEADER_SIZE=struct.calcsize(FMT)
 
@@ -44,7 +44,7 @@ def build(payload_path,out_path):
     bucket_word_ids_off=put(buf,bucket_word_ids); bucket_word_ids_count=len(bucket_word_ids)//4
     file_size=len(buf)
     header=struct.pack(FMT,
-        MAGIC,1,HEADER_SIZE,p['word_count'],p['indexed_word_count'],len(sylls),len(p['bucket_symbols']),
+        MAGIC,2,HEADER_SIZE,p['word_count'],p['indexed_word_count'],len(sylls),len(p['bucket_symbols']),
         file_size,
         word_pool_off,word_pool_size,
         word_offsets_off,pron_offsets_off,

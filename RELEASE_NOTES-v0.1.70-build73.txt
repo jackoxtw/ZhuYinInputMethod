@@ -1,0 +1,28 @@
+逐音輸入法 v0.1.70 / build 73
+
+主題：網頁 Enter Return Guard 實機修正
+
+你提供的 DOM 診斷顯示：
+- 標準 InputMethodKit 防護正常：Enter keyDown 是 keyCode=229，且 isComposing=true。
+- 但 build 72 的完整防誤送沒有在瀏覽器前攔截成功，因為 Enter keyDown/keyUp 仍完整出現在 DOM。
+
+本版修正：
+1. 輸入法 process 從 LSBackgroundOnly 改成 LSUIElement accessory agent。
+   近期 macOS 的 TCC / CGEventTap 對 LSBackgroundOnly process 可能即使顯示已授權仍拒絕 active tap。
+2. 保留 NSApplication accessory activation policy，不顯示 Dock icon。
+3. Guard 設定頁新增「真正的 Event Tap 狀態」與攔截計數。
+   不再只以 AXIsProcessTrusted() 判斷是否成功。
+4. 組字期間若 Guard 真正生效：實體 Enter keyDown / keyUp 由 event tap return NULL，DOM 不會看到該按鍵。
+5. 未取得／失去 Accessibility 時仍自動回到 IMK keyCode=229 + composing 第一層防護。
+6. 保留 build 72 的 Emoji／中文標點 marked composition 修正。
+
+驗證方式：
+- 開啟「設定 → 網頁聊天防誤送 → 完整防誤送」。
+- 確認狀態不是只有「輔助使用已授權」，而是「Guard：已就緒」或組字時「Guard：執行中」。
+- 輸入中文並用 Enter 選字後再開設定；「已攔截 ↓N ↑N」必須增加。
+- 診斷頁中，用來確認候選的 Enter 不應再出現 keydown/keyup。
+
+注意：
+本專案的快速建置仍是 ad-hoc codesign。每次重編譯 binary 後 macOS 可能把既有 TCC Accessibility grant 視為舊簽章；若看到「已授權，但 Event Tap 建立失敗」，請到「系統設定 → 隱私權與安全性 → 輔助使用」移除舊的逐音輸入法後重新加入／授權，再重新啟動輸入法。
+
+本非 macOS 建置環境無法替你實際建立/驗證 CGEventTap，因此沒有假稱實機通過；已完成來源層與回歸測試。

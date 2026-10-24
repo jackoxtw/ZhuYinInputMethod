@@ -34,6 +34,32 @@ int main(int argc, char **argv) {
     n = zy_engine_lookup(&e, "ㄓㄨˊ", out, 40);
     assert(!contains(out,n,"逐音輸入法"));
 
+    // Built-in geographic layer: Taiwan administrative names, common aliases,
+    // proper-name pronunciations, and common country names must be reachable.
+    n = zy_engine_lookup(&e, "ㄇㄧㄠˊㄌㄧˋㄒㄧㄢˋㄋㄢˊㄓㄨㄤㄒㄧㄤ", out, 40);
+    assert(contains(out,n,"苗栗縣南庄鄉"));
+    n = zy_engine_lookup(&e, "ㄙㄢㄔㄨㄥˊ", out, 40);
+    assert(contains(out,n,"三重"));
+    n = zy_engine_lookup(&e, "ㄆㄨˇㄌㄧˇ", out, 40);
+    assert(contains(out,n,"埔里"));
+    n = zy_engine_lookup(&e, "ㄇㄟˇㄍㄨㄛˊ", out, 40);
+    assert(contains(out,n,"美國"));
+    n = zy_engine_lookup(&e, "ㄅㄧㄥㄉㄠˇ", out, 40);
+    assert(contains(out,n,"冰島"));
+
+    // Build 71 transport layer: section-free road names, rail/metro stations,
+    // and airports must be reachable through the same mmap dictionary.
+    n = zy_engine_lookup(&e, "ㄓㄨㄥㄒㄧㄠˋㄉㄨㄥㄌㄨˋ", out, 40);
+    assert(contains(out,n,"忠孝東路"));
+    n = zy_engine_lookup(&e, "ㄊㄞˊㄨㄢㄉㄚˋㄉㄠˋ", out, 40);
+    assert(contains(out,n,"臺灣大道") || contains(out,n,"台灣大道"));
+    n = zy_engine_lookup(&e, "ㄊㄞˊㄅㄟˇㄔㄜㄓㄢˋ", out, 40);
+    assert(contains(out,n,"臺北車站") || contains(out,n,"台北車站"));
+    n = zy_engine_lookup(&e, "ㄍㄠㄊㄧㄝˇㄗㄨㄛˇㄧㄥˊㄓㄢˋ", out, 40);
+    assert(contains(out,n,"高鐵左營站"));
+    n = zy_engine_lookup(&e, "ㄊㄠˊㄩㄢˊㄐㄧㄔㄤˇ", out, 40);
+    assert(contains(out,n,"桃園機場"));
+
     // Taiwan readings and polyphones must be reachable through the real engine.
     n = zy_engine_lookup(&e, "ㄑㄧˊ", out, 40);
     assert(contains(out,n,"期"));

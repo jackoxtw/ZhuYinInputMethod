@@ -14,11 +14,12 @@ extern "C" {
 
 typedef struct {
     void *beams;
-    size_t *counts;
+    uint8_t *counts;
 } ZYComposerWorkspace;
 
 int zy_composer_workspace_init(ZYComposerWorkspace *workspace);
 void zy_composer_workspace_dispose(ZYComposerWorkspace *workspace);
+size_t zy_composer_workspace_bytes(void);
 size_t zy_composer_lookup_with_workspace(ZYEngine *engine,const char *query,ZYCandidate *out,size_t cap,ZYComposerWorkspace *workspace);
 size_t zy_composer_lookup(ZYEngine *engine,const char *query,ZYCandidate *out,size_t cap);
 

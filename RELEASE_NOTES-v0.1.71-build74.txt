@@ -1,0 +1,31 @@
+逐音輸入法 v0.1.71 / build 74
+Return Guard 專用事件執行緒修正版
+
+本版針對 build 73 實機診斷中，組字確認 Enter 仍出現在 DOM 的問題進一步修正。
+
+實機證據（build 73）：
+- Enter keydown 仍為 keyCode=229、isComposing=true，表示標準 InputMethodKit 防護正常。
+- Enter keyup 仍為 keyCode=13 並進入 DOM，表示系統級 Return Guard 沒有在瀏覽器前刪掉實體事件。
+
+build 74 核心修正：
+1. CGEventTap 改為獨立 CFRunLoop thread，不與 InputMethodKit 主事件迴圈共用。
+2. Event Tap 取得權限後保持常駐啟用；閒置只 pass-through，只有逐音組字 armed 時吞 Return。
+3. 移除每次組字開始／結束反覆 CGEventTapEnable 的時序依賴。
+4. 跨 main/tap thread 的 armed、enabled、pending keyUp 改為 atomic。
+5. Event Tap Mach port 失效時使用 CFMachPortIsValid 偵測並重建。
+6. 設定頁新增診斷計數：
+   - Tap ↓/↑：tap callback 真正收到的所有 keyDown/keyUp
+   - Enter ↓/↑：tap callback 真正看到的 Return/Keypad Enter
+   - armed ↓：看到 Return 時逐音確實處於 armed 狀態
+   - 攔截 ↓/↑：實際 return NULL 刪除的 Return keyDown/keyUp
+
+正確實機結果：
+- 打注音時 Tap 計數持續增加。
+- 按確認候選 Enter 時 Enter、armed、攔截計數增加。
+- 網頁診斷頁不應出現該次 Enter 的 keydown 或 keyup。
+
+若 Tap 計數完全不增加：Event Tap 本身未收到事件，優先檢查輔助使用授權/TCC。
+若 Tap 增加、Enter 增加但 armed=0：表示 IME 組字旗標同步仍有問題。
+若 armed 與攔截均增加但 DOM 仍出現 Enter：代表事件不是同一個實體 CGEvent 流，需再檢查瀏覽器/系統是否重建 synthetic key event。
+
+注意：目前交付環境不是 macOS，因此無法在此環境實際建立 CGEventTap；已完成原始碼、靜態回歸與封裝檢查，但最終行為仍以你的 Mac 實機測試為準。

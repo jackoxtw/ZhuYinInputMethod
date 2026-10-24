@@ -1,0 +1,14 @@
+逐音輸入法 v0.1.65 / build 68
+封版重點：
+- Learning v3（ZYLEARN3），保留 ZYLEARN1 / ZYLEARN2 自動 migration。
+- 跨程序學習改用未落盤增量 replay，修正同詞並發 +1 遺失。
+- 刪除加入 pending tombstone/reset serial 規則，避免舊程序把已刪學習復活。
+- phrase query/pron 合併為單一 matching key；ZYLearning 由 1,290,288 bytes 降至 1,094,720 bytes，約 -15.2%。
+- 主詞庫升級 ZYDICT2，載入時驗證 offset sentinel/單調性、syllable ID 與 bucket word ID。
+- macOS Runtime 對 lookup / learning / clear / flush / shutdown 加入可重入同步保護。
+- Shared/Core Windows 路徑改用 CRT 檔案 I/O/locking；macOS/POSIX 繼續 mmap。
+- 核心 C 測試、55 個 Python/static 測試、-Wall/-Wextra/-Werror、ASan/UBSan 均通過。
+
+驗證限制：
+- 此封版環境不是 macOS，因此未在此容器實際連結 AppKit/InputMethodKit 產生 .app；macOS 相關部分以原專案 build script 與靜態回歸驗證。
+- 此封版環境沒有 MSVC/MinGW，因此 Windows scaffold 已做來源/邊界靜態驗證，但未在此容器實際產生 Windows 執行檔。

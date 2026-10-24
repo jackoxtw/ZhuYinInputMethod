@@ -31,10 +31,14 @@ for token in [
 ]:
     assert token in learning_h, token
 
-# Persisted layout stays version-1 compatible: no new persistent fields.
-assert 'typedef struct {\n    uint32_t clock;' in learning_h
-assert 'ZY_LEARN_MAGIC "ZYLEARN1"' in learning_c
-assert 'h.version!=1' in learning_c
+# Learning v3 persists stable identity and can migrate legacy v1/v2 snapshots.
+assert 'uint64_t stable_key' in learning_h
+assert 'uint64_t dictionary_fingerprint' in learning_h
+assert 'ZY_LEARN_MAGIC_V3 "ZYLEARN3"' in learning_c
+assert 'ZY_LEARN_MAGIC_V2 "ZYLEARN2"' in learning_c
+assert 'ZY_LEARN_MAGIC_V1 "ZYLEARN1"' in learning_c
+assert 'migrate_v1' in learning_c and 'migrate_v2_payload' in learning_c
+assert 'word_pending_delta' in learning_h and 'phrase_pending_delta' in learning_h
 
 # Runtime applies rank 2 only to a live explicit query choice; exact learned
 # phrases use rank 1, and ordinary score receives capped adaptive bonuses.

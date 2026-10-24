@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inject or update data-driven words in a ZYDICT1 dictionary."""
+"""Inject or update data-driven words in a ZYDICT1/ZYDICT2 dictionary."""
 from __future__ import annotations
 
 import argparse

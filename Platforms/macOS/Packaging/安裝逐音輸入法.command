@@ -44,6 +44,19 @@ step "3/3 安裝到系統輸入法目錄"
 warn "macOS 即將要求管理員密碼；輸入時不會顯示字元，這是正常的。"
 sudo -v
 
+# 在替換舊 App 前先正常結束輸入法，讓 applicationWillTerminate 有機會
+# 將尚未落盤的學習資料寫回。只有舊程序真的卡住才升級到 TERM/KILL。
+/usr/bin/osascript -e 'tell application id "tw.zhuyin.inputmethod.v3" to quit' >/dev/null 2>&1 || true
+for _ in 1 2 3 4 5; do
+  pgrep -x ZhuYinInputMethod >/dev/null 2>&1 || break
+  sleep 0.2
+done
+if pgrep -x ZhuYinInputMethod >/dev/null 2>&1; then
+  killall -TERM ZhuYinInputMethod 逐音輸入法 逐音輸入法2 2>/dev/null || true
+  sleep 0.5
+fi
+pgrep -x ZhuYinInputMethod >/dev/null 2>&1 && killall -KILL ZhuYinInputMethod 2>/dev/null || true
+
 if [[ -x "$LSREGISTER" ]]; then
   "$LSREGISTER" -u "$DEST" 2>/dev/null || true
 fi
@@ -58,7 +71,6 @@ if [[ -x "$LSREGISTER" ]]; then
   "$LSREGISTER" -f "$DEST" 2>/dev/null || true
 fi
 
-killall ZhuYinInputMethod 逐音輸入法 逐音輸入法2 2>/dev/null || true
 open "$DEST" || true
 open "x-apple.systempreferences:com.apple.Keyboard-Settings.extension" 2>/dev/null || true
 

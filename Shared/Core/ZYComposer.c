@@ -6,14 +6,18 @@
 
 typedef struct {
     int64_t score;
-    uint16_t offset;
+    uint64_t text_hash;
+    uint16_t text_bytes;
     uint8_t segment_count;
     uint8_t final_complete;
     uint8_t matched_chars;
+    uint8_t reserved[3];
     uint32_t segment_ids[ZY_COMPOSER_MAX_SEGMENTS];
     uint8_t segment_consume[ZY_COMPOSER_MAX_SEGMENTS];
-    char text[ZY_CANDIDATE_WORD_BYTES];
 } ZYComposePath;
+
+#define ZY_FNV64_OFFSET 1469598103934665603ULL
+#define ZY_FNV64_PRIME 1099511628211ULL
 
 static size_t utf8_char_len(unsigned char c){if(c<0x80)return 1;if((c&0xE0)==0xC0)return 2;if((c&0xF0)==0xE0)return 3;if((c&0xF8)==0xF0)return 4;return 1;}
 
@@ -54,8 +58,28 @@ static size_t codepoint_offsets(const char *s,size_t *offsets,size_t cap){
     return n;
 }
 
-static int append_text(char dst[ZY_CANDIDATE_WORD_BYTES],const char *src){
-    size_t a=strlen(dst),b=strlen(src);if(a+b>=ZY_CANDIDATE_WORD_BYTES)return 0;memcpy(dst+a,src,b+1);return 1;
+static uint64_t hash_extend(uint64_t h,const char *src,size_t n){
+    const unsigned char *p=(const unsigned char*)src;
+    for(size_t i=0;i<n;i++){h^=p[i];h*=ZY_FNV64_PRIME;}
+    return h;
+}
+
+static int materialize_path(const ZYEngine *e,const ZYComposePath *p,char out[ZY_CANDIDATE_WORD_BYTES]){
+    size_t pos=0;
+    for(uint8_t i=0;i<p->segment_count;i++){
+        const char *word=NULL;size_t n=0;
+        if(p->segment_ids[i]>=e->dict.h->word_count||zy_dict_word(&e->dict,p->segment_ids[i],&word,&n)!=0)return 0;
+        if(pos+n>=ZY_CANDIDATE_WORD_BYTES)return 0;
+        memcpy(out+pos,word,n);pos+=n;
+    }
+    out[pos]=0;return 1;
+}
+
+static int path_text_equal(const ZYEngine *e,const ZYComposePath *a,const ZYComposePath *b){
+    if(a->text_bytes!=b->text_bytes||a->text_hash!=b->text_hash)return 0;
+    char ta[ZY_CANDIDATE_WORD_BYTES],tb[ZY_CANDIDATE_WORD_BYTES];
+    if(!materialize_path(e,a,ta)||!materialize_path(e,b,tb))return 0;
+    return strcmp(ta,tb)==0;
 }
 
 static int64_t edge_score(const ZYEngine *e,const ZYCandidate *c){
@@ -68,9 +92,9 @@ static int64_t edge_score(const ZYEngine *e,const ZYCandidate *c){
     return s;
 }
 
-static void beam_insert(ZYComposePath *beam,size_t *count,const ZYComposePath *p){
+static void beam_insert(const ZYEngine *e,ZYComposePath *beam,uint8_t *count,const ZYComposePath *p){
     for(size_t i=0;i<*count;i++){
-        if(strcmp(beam[i].text,p->text)==0){
+        if(path_text_equal(e,&beam[i],p)){
             if(p->score>beam[i].score){beam[i]=*p;while(i>0&&beam[i].score>beam[i-1].score){ZYComposePath t=beam[i-1];beam[i-1]=beam[i];beam[i]=t;i--;}}
             return;
         }
@@ -78,7 +102,7 @@ static void beam_insert(ZYComposePath *beam,size_t *count,const ZYComposePath *p
     size_t pos=0;while(pos<*count&&beam[pos].score>=p->score)pos++;
     if(pos>=ZY_COMPOSER_BEAM_WIDTH)return;
     if(*count<ZY_COMPOSER_BEAM_WIDTH)(*count)++;
-    for(size_t i=*count-1;i>pos;i--)beam[i]=beam[i-1];
+    for(size_t i=(size_t)*count-1;i>pos;i--)beam[i]=beam[i-1];
     beam[pos]=*p;
 }
 
@@ -94,7 +118,7 @@ int zy_composer_workspace_init(ZYComposerWorkspace *workspace){
     memset(workspace,0,sizeof(*workspace));
     const size_t slots=ZY_COMPOSER_MAX_QUERY_CODEPOINTS+1;
     workspace->beams=calloc(slots*ZY_COMPOSER_BEAM_WIDTH,sizeof(ZYComposePath));
-    workspace->counts=(size_t*)calloc(slots,sizeof(size_t));
+    workspace->counts=(uint8_t*)calloc(slots,sizeof(uint8_t));
     if(!workspace->beams||!workspace->counts){
         zy_composer_workspace_dispose(workspace);
         return -1;
@@ -109,6 +133,11 @@ void zy_composer_workspace_dispose(ZYComposerWorkspace *workspace){
     memset(workspace,0,sizeof(*workspace));
 }
 
+size_t zy_composer_workspace_bytes(void){
+    const size_t slots=ZY_COMPOSER_MAX_QUERY_CODEPOINTS+1;
+    return slots*ZY_COMPOSER_BEAM_WIDTH*sizeof(ZYComposePath)+slots*sizeof(uint8_t);
+}
+
 size_t zy_composer_lookup_with_workspace(ZYEngine *e,const char *query,ZYCandidate *out,size_t cap,ZYComposerWorkspace *workspace){
     if(!e||!query||!*query||!out||!cap||!workspace||!workspace->beams||!workspace->counts)return 0;
     size_t byte_offsets[ZY_COMPOSER_MAX_QUERY_CODEPOINTS+1];
@@ -118,10 +147,10 @@ size_t zy_composer_lookup_with_workspace(ZYEngine *e,const char *query,ZYCandida
 
     size_t slots=cp_count+1;
     ZYComposePath *beams=(ZYComposePath*)workspace->beams;
-    size_t *counts=workspace->counts;
+    uint8_t *counts=workspace->counts;
     memset(beams,0,slots*ZY_COMPOSER_BEAM_WIDTH*sizeof(ZYComposePath));
-    memset(counts,0,slots*sizeof(size_t));
-    ZYComposePath start={0};start.offset=0;beams[0]=start;counts[0]=1;
+    memset(counts,0,slots*sizeof(uint8_t));
+    ZYComposePath start={0};start.text_hash=ZY_FNV64_OFFSET;beams[0]=start;counts[0]=1;
 
     for(size_t off=0;off<cp_count;off++){
         if(!counts[off])continue;
@@ -138,11 +167,13 @@ size_t zy_composer_lookup_with_workspace(ZYEngine *e,const char *query,ZYCandida
                 if(next<cp_count&&!boundary[next])continue;
                 if(next<cp_count&&!edge->word_complete)continue;
                 ZYComposePath np=base;
-                if(!append_text(np.text,edge->word))continue;
+                size_t edge_bytes=strlen(edge->word);
+                if((size_t)np.text_bytes+edge_bytes>=ZY_CANDIDATE_WORD_BYTES)continue;
+                np.text_hash=hash_extend(np.text_hash,edge->word,edge_bytes);
+                np.text_bytes=(uint16_t)(np.text_bytes+edge_bytes);
                 uint8_t si=np.segment_count++;
                 np.segment_ids[si]=edge->id;
                 np.segment_consume[si]=(uint8_t)consumed;
-                np.offset=(uint16_t)next;
                 np.final_complete=edge->word_complete;
                 unsigned matched=(unsigned)np.matched_chars+(unsigned)edge->matched_chars;np.matched_chars=(uint8_t)(matched>255?255:matched);
                 np.score+=edge_score(e,edge);
@@ -152,7 +183,7 @@ size_t zy_composer_lookup_with_workspace(ZYEngine *e,const char *query,ZYCandida
                 if(si==0 && edge->word_complete && edge->matched_chars>1)
                     np.score+=(int64_t)(edge->matched_chars-1)*240000LL;
                 if(si>0)np.score-=220000LL;
-                beam_insert(&beams[next*ZY_COMPOSER_BEAM_WIDTH],&counts[next],&np);
+                beam_insert(e,&beams[next*ZY_COMPOSER_BEAM_WIDTH],&counts[next],&np);
             }
         }
     }
@@ -163,7 +194,8 @@ size_t zy_composer_lookup_with_workspace(ZYEngine *e,const char *query,ZYCandida
         ZYCandidate c={0};c.id=UINT32_MAX-1u;c.score=(int32_t)(final[i].score>INT_MAX?INT_MAX:(final[i].score<INT_MIN?INT_MIN:final[i].score));
         c.match_class=5;c.matched_chars=final[i].matched_chars;c.dictionary_exact=final[i].final_complete?1:0;c.word_complete=final[i].final_complete;c.consume_codepoints=(uint8_t)cp_count;c.segment_count=final[i].segment_count;
         memcpy(c.segment_ids,final[i].segment_ids,sizeof(c.segment_ids));memcpy(c.segment_consume_codepoints,final[i].segment_consume,sizeof(c.segment_consume_codepoints));
-        memcpy(c.word,final[i].text,sizeof(c.word));out[n++]=c;
+        if(!materialize_path(e,&final[i],c.word))continue;
+        out[n++]=c;
     }
     qsort(out,n,sizeof(out[0]),candidate_compare);
     return n;

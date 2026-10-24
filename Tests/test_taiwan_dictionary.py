@@ -14,7 +14,7 @@ def read_entries(path: Path):
      syllable_ids_off, syllable_ids_count, weights_off, syllable_pool_off, syllable_pool_size,
      syllable_offsets_off, bucket_symbols_off, bucket_offsets_off, bucket_word_ids_off,
      bucket_word_ids_count) = h
-    assert magic.startswith(b'ZYDICT1') and version == 1 and file_size == len(data)
+    assert ((magic.startswith(b'ZYDICT1') and version == 1) or (magic.startswith(b'ZYDICT2') and version == 2)) and file_size == len(data)
     word_offsets = struct.unpack_from(f'<{word_count + 1}I', data, word_offsets_off)
     pron_offsets = struct.unpack_from(f'<{word_count + 1}I', data, pron_offsets_off)
     syllable_ids = struct.unpack_from(f'<{syllable_ids_count}H', data, syllable_ids_off)

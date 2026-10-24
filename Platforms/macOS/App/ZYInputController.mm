@@ -1,6 +1,7 @@
 #import "ZYInputController.h"
 #import "ZYRuntime.h"
 #import "ZYAccessibilityCaret.h"
+#import "ZYReturnGuard.h"
 #import <Carbon/Carbon.h>
 #include <math.h>
 
@@ -10,6 +11,7 @@
 #define ZY_PIECE_PRON 384
 
 static NSString *const ZYOutputSimplifiedKey=@"ZYOutputSimplified";
+static NSString *const ZYQuickEnterConfirmKey=@"ZYQuickEnterConfirm";
 
 typedef enum { ZYPieceWord=1, ZYPiecePunctuation=2, ZYPieceLiteral=3 } ZYPieceKind;
 typedef enum { ZYSpecialCandidateNone=0, ZYSpecialCandidateEmoji=1, ZYSpecialCandidatePunctuation=2 } ZYSpecialCandidateMode;
@@ -67,6 +69,12 @@ static void flushLearningRun(char *word,size_t wordCap,char *query,size_t queryC
         _chinese=YES;
         NSUserDefaults *defaults=[NSUserDefaults standardUserDefaults];
         _simplified=[defaults boolForKey:ZYOutputSimplifiedKey];
+        // Never prompt during typing. If Accessibility is already granted, bind the
+        // strict guard to the current foreground client before the first keystroke so
+        // the preferred per-PID route is ready without first-key tap churn.
+        NSRunningApplication *frontmost=[NSWorkspace sharedWorkspace].frontmostApplication;
+        if(frontmost)ZYReturnGuardSetTargetPID(frontmost.processIdentifier);
+        else ZYReturnGuardEnsureStarted();
     }
     return self;
 }
@@ -98,8 +106,29 @@ static void flushLearningRun(char *word,size_t wordCap,char *query,size_t queryC
         if(strongSelf->_panel&&!strongSelf->_panel.isVisible)[strongSelf releaseCandidatePanel];
     });
 }
-- (void)inputControllerWillClose { [self releaseCandidatePanel]; ZYRuntimeMaybeFlush(); [super inputControllerWillClose]; }
-- (void)deactivateServer:(id)sender { memset(_handledKeyDown,0,sizeof(_handledKeyDown)); [self releaseCandidatePanel]; [super deactivateServer:sender]; }
+- (void)inputControllerWillClose {
+    ZYReturnGuardSetArmed(NO);
+    ZYReturnGuardSetHandler(nil);
+    id client=[self client];
+    // Only persist text the user already selected.  Do not auto-resolve an
+    // unfinished Zhuyin buffer merely because the client/controller is closing.
+    if(client&&_pieceCount)[self learnAndCommit:client];
+    ZYRuntimeForceFlush();
+    [self releaseCandidatePanel];
+    [super inputControllerWillClose];
+}
+- (void)deactivateServer:(id)sender {
+    ZYReturnGuardSetArmed(NO);
+    ZYReturnGuardSetHandler(nil);
+    memset(_handledKeyDown,0,sizeof(_handledKeyDown));
+    id client=sender?:[self client];
+    // Focus changes may arrive before IMK asks commitComposition:.  Preserve
+    // already-selected pieces, while leaving unresolved phonetics unlearned.
+    if(client&&_pieceCount)[self learnAndCommit:client];
+    ZYRuntimeForceFlush();
+    [self releaseCandidatePanel];
+    [super deactivateServer:sender];
+}
 - (NSUInteger)recognizedEvents:(id)sender { (void)sender; return NSEventMaskKeyDown|NSEventMaskKeyUp|NSEventMaskFlagsChanged; }
 
 - (NSString *)piecesText {
@@ -125,35 +154,31 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
 }
 - (NSRect)clientRect:(id)client {
     @autoreleasepool {
-        // IMKTextInput provides the primary candidate-window positioning API.
-        // Query only the final inline character once.  Some clients return an
-        // unusable rectangle; in that case move directly to the document-range
-        // fallback instead of scanning backward through the whole preedit string.
+        // IMKTextInput's character index is RELATIVE to the current inline
+        // session.  When there is no inline session, index 0 means the current
+        // selection.  Do not feed document-absolute markedRange/selectedRange
+        // locations into this API: web editors may reject those indices and
+        // then the candidate window loses its caret anchor.
         if([client respondsToSelector:@selector(attributesForCharacterIndex:lineHeightRectangle:)]) {
             id<IMKTextInput> textClient=(id<IMKTextInput>)client;
-            NSInteger cursor=NSNotFound;
             @try {
+                NSUInteger inlineIndex=0;
                 if([client respondsToSelector:@selector(markedRange)]) {
                     NSRange marked=[client markedRange];
-                    if(marked.location!=NSNotFound&&marked.length)cursor=(NSInteger)NSMaxRange(marked)-1;
+                    if(marked.location!=NSNotFound&&marked.length)inlineIndex=marked.length-1;
                 }
-                if(cursor==NSNotFound&&[client respondsToSelector:@selector(selectedRange)]) {
-                    NSRange selected=[client selectedRange];
-                    if(selected.location!=NSNotFound){cursor=(NSInteger)selected.location;if(cursor>0) cursor--;}
-                }
-                if(cursor>=0&&cursor!=NSNotFound) {
-                    NSRect lineRect=NSZeroRect;
-                    [textClient attributesForCharacterIndex:(NSUInteger)cursor lineHeightRectangle:&lineRect];
-                    if(ZYUsableCaretRect(lineRect)){
-                        _lastCaretRect=lineRect;
-                        return lineRect;
-                    }
+                NSRect lineRect=NSZeroRect;
+                [textClient attributesForCharacterIndex:inlineIndex lineHeightRectangle:&lineRect];
+                if(ZYUsableCaretRect(lineRect)){
+                    _lastCaretRect=lineRect;
+                    return lineRect;
                 }
             } @catch(__unused NSException *e) {}
         }
 
-        // Document-relative ranges are a compatibility fallback.  IMKTextInput
-        // clients are allowed to report NSNotFound when document access is unavailable.
+        // Document-relative ranges are a compatibility fallback.  Unlike the
+        // IMK attributes API above, firstRectForCharacterRange expects an
+        // absolute document range and returns screen coordinates.
         if([client respondsToSelector:@selector(firstRectForCharacterRange:actualRange:)]) {
             @try {
                 NSRange caret=NSMakeRange(NSNotFound,0);
@@ -176,13 +201,12 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
         NSRect ax=ZYAccessibilityCaretRect();
         if(ZYUsableCaretRect(ax)){_lastCaretRect=ax;return ax;}
 
-        // Never substitute the mouse pointer for a text caret.  If a client briefly
-        // fails to answer during an update, keep the most recent real caret instead.
+        // A transient client failure must never invent a caret at the centre of
+        // the screen.  Reuse only a previously verified real caret.  If this is
+        // the first query and no source can provide a caret yet, return zero so
+        // the caller leaves the popup hidden / at its previous real position.
         if(ZYUsableCaretRect(_lastCaretRect))return _lastCaretRect;
-        NSScreen *screen=[NSScreen mainScreen];
-        if(!screen) screen=[[NSScreen screens] firstObject];
-        NSRect vis=screen?[screen visibleFrame]:NSMakeRect(0,0,1440,900);
-        return NSMakeRect(NSMidX(vis),NSMidY(vis),1,20);
+        return NSZeroRect;
     }
 }
 - (id)composedString:(id)sender {
@@ -204,6 +228,7 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
                selectionRange:NSMakeRange(marked.length,0)
              replacementRange:NSMakeRange(NSNotFound,NSNotFound)];
     }
+    [self syncReturnGuard];
 }
 
 // Keep the client's marked-text state synchronous with the internal preedit.
@@ -211,6 +236,34 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
 // instead of an ordinary Enter-to-submit event.
 - (void)publishMarkedText:(id)client {
     [self updateMarked:client];
+}
+
+- (BOOL)returnGuardCompositionActive {
+    return _chinese&&(_specialMode!=ZYSpecialCandidateNone||_composition.length||_pieceCount||_candidateCount);
+}
+
+- (void)syncReturnGuard {
+    // Publish the actual foreground application PID before arming. The strict guard
+    // can then prefer CGEventTapCreateForPid, i.e. the final application-delivery
+    // path, instead of relying only on the global session stream.
+    NSRunningApplication *frontmost=[NSWorkspace sharedWorkspace].frontmostApplication;
+    if(frontmost)ZYReturnGuardSetTargetPID(frontmost.processIdentifier);
+
+    BOOL active=[self returnGuardCompositionActive];
+    if(active){
+        __weak ZYInputController *weakSelf=self;
+        ZYReturnGuardSetHandler(^(unsigned short keyCode){
+            (void)keyCode;
+            ZYInputController *strongSelf=weakSelf;
+            if(!strongSelf)return;
+            id liveClient=[strongSelf client];
+            if(!liveClient)return;
+            // The physical Return/Enter never reaches the client when strict guard
+            // is active. Advance exactly the same IME state machine manually.
+            [strongSelf consumeReturnWhileComposing:liveClient];
+        });
+    }
+    ZYReturnGuardSetArmed(active);
 }
 
 - (BOOL)consumeReturnWhileComposing:(id)client {
@@ -223,7 +276,14 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
     // the same keypress that selected a candidate.
     [self publishMarkedText:client];
     if(_candidateCount){
-        [self chooseSelected:client];
+        BOOL quickConfirm=[[NSUserDefaults standardUserDefaults] boolForKey:ZYQuickEnterConfirmKey];
+        BOOL chose=[self chooseSelected:client];
+        if(chose&&quickConfirm&&!_composition.length&&_pieceCount){
+            // Quick mode collapses the final "select candidate" + "commit staged
+            // Chinese" steps into this one IME-owned Return.  We still return
+            // YES below, so the browser never receives this Return as submit.
+            [self learnAndCommit:client];
+        }
         return YES;
     }
     if(_composition.length){NSBeep();[self refreshPanel:client];return YES;}
@@ -254,15 +314,20 @@ static BOOL ZYUsableCaretRect(NSRect rect) {
         BOOL deletable[50]={0};for(NSUInteger i=0;i<count;i++)deletable[i]=ZYRuntimeCandidateHasLearning(_candidates[_pageStart+i].id);
         [panel updateCandidates:_candidates+_pageStart deletable:deletable count:count selected:_selected-_pageStart chinese:_chinese simplified:_simplified];
     }
-    [panel showNearRect:[self clientRect:client]];
+    NSRect caret=[self clientRect:client];
+    if(ZYUsableCaretRect(caret))[panel showNearRect:caret];
 }
 - (void)openSpecialCandidates:(ZYSpecialCandidateMode)mode client:(id)client {
     NSArray<NSString*> *items=ZYSpecialCandidates(mode);if(!items.count)return;
-    _specialMode=mode;_candidateCount=items.count;_selected=0;_pageStart=0;[self refreshPanel:client];
+    _specialMode=mode;_candidateCount=items.count;_selected=0;_pageStart=0;
+    [self updateMarked:client];
+    [self refreshPanel:client];
 }
 - (void)closeSpecialCandidates:(id)client {
     if(_specialMode==ZYSpecialCandidateNone)return;
-    _specialMode=ZYSpecialCandidateNone;[self refreshCandidates:client];
+    _specialMode=ZYSpecialCandidateNone;
+    [self updateMarked:client];
+    [self refreshCandidates:client];
 }
 - (void)showInternalState:(id)client { [self updateMarked:client]; [self refreshCandidates:client]; }
 
@@ -490,6 +555,7 @@ static NSString *chinesePunctuation(unsigned short k,BOOL shift){if(!shift){if(k
             if(_pieceCount){ZYPendingPiece p=_pieces[--_pieceCount];if(p.kind==ZYPieceWord||p.kind==ZYPieceLiteral)[_composition setString:[NSString stringWithUTF8String:p.query]?:@""];[self showInternalState:client];return YES;}return NO;
         case 53:
             if(_panel.clearLearningConfirmationVisible){[_panel closeClearLearningConfirmation];return YES;}
+            if(_panel.settingsVisible){[_panel closeSettings];return YES;}
             if(_panel.quickHelpVisible){[_panel closeQuickHelp];return YES;}
             if(_specialMode!=ZYSpecialCandidateNone){[self closeSpecialCandidates:client];return YES;}
             if(_composition.length){[_composition setString:@""];_candidateCount=0;[self updateMarked:client];[self hideCandidatePanel];return YES;}

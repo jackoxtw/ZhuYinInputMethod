@@ -113,12 +113,51 @@ static MR match_rec_mode(const ZYDictionary *d,uint32_t si,uint32_t end,const ch
 static MR match_word_mode(const ZYDictionary *d,uint32_t wid,const char *q,size_t qn,int allow_suffix){uint32_t a=d->pron_offsets[wid],b=d->pron_offsets[wid+1];if(a==b){MR z={0};return z;}return match_rec_mode(d,a,b,q,qn,0,allow_suffix);}
 static MR match_word(const ZYDictionary *d,uint32_t wid,const char *q,size_t qn){return match_word_mode(d,wid,q,qn,0);}
 
-static void copy_word(const ZYDictionary *d,uint32_t wid,char out[ZY_CANDIDATE_WORD_BYTES]){const char *p;size_t n;if(zy_dict_word(d,wid,&p,&n)!=0){out[0]=0;return;}if(n>=ZY_CANDIDATE_WORD_BYTES)n=ZY_CANDIDATE_WORD_BYTES-1;memcpy(out,p,n);out[n]=0;}
-static int same_word(const ZYCandidate *a,const char *w){return strcmp(a->word,w)==0;}
-static void insert_top(ZYCandidate *out,size_t *n,size_t cap,ZYCandidate c){
-    for(size_t i=0;i<*n;i++)if(same_word(&out[i],c.word)){if(c.score>out[i].score)out[i]=c;return;}
-    size_t pos=0;while(pos<*n && out[pos].score>=c.score)pos++;
-    if(pos>=cap)return; if(*n<cap)(*n)++; for(size_t i=*n-1;i>pos;i--)out[i]=out[i-1];out[pos]=c;
+static void copy_word_bytes(const char *p,size_t n,char out[ZY_CANDIDATE_WORD_BYTES]){if(!p){out[0]=0;return;}if(n>=ZY_CANDIDATE_WORD_BYTES)n=ZY_CANDIDATE_WORD_BYTES-1;memcpy(out,p,n);out[n]=0;}
+static void copy_word(const ZYDictionary *d,uint32_t wid,char out[ZY_CANDIDATE_WORD_BYTES]){const char *p;size_t n;if(zy_dict_word(d,wid,&p,&n)!=0){out[0]=0;return;}copy_word_bytes(p,n,out);}
+/* Top-K collector optimized for the IME hot path.
+   It preserves the previous stable score/insertion semantics but shifts only
+   32-bit slot indices instead of whole ZYCandidate structs. Duplicate checks
+   first compare a 64-bit word hash, so strcmp is only used on a hash hit. */
+static uint64_t candidate_word_hash_n(const char *s,size_t n){
+    uint64_t h=1469598103934665603ULL;const unsigned char *p=(const unsigned char*)s;
+    for(size_t i=0;i<n;i++){h^=p[i];h*=1099511628211ULL;}return h;
+}
+static size_t top_position(const ZYCandidate *out,const uint32_t *order,size_t n,int32_t score){
+    size_t pos=0;while(pos<n&&out[order[pos]].score>=score)pos++;return pos;
+}
+static void top_reposition(ZYCandidate *out,uint32_t *order,size_t n,uint32_t slot){
+    size_t old=0;while(old<n&&order[old]!=slot)old++;
+    if(old==n)return;
+    for(size_t i=old+1;i<n;i++)order[i-1]=order[i];
+    size_t pos=top_position(out,order,n-1,out[slot].score);
+    for(size_t i=n-1;i>pos;i--)order[i]=order[i-1];
+    order[pos]=slot;
+}
+static void insert_top_word(ZYCandidate *out,uint32_t *order,uint64_t *hashes,size_t *n,size_t cap,ZYCandidate c,const char *word,size_t word_len){
+    if(!cap||!word)return;
+    size_t visible_len=word_len<ZY_CANDIDATE_WORD_BYTES?word_len:ZY_CANDIDATE_WORD_BYTES-1;
+    uint64_t h=candidate_word_hash_n(word,visible_len);
+    for(size_t i=0;i<*n;i++)if(hashes[i]==h&&strlen(out[i].word)==visible_len&&memcmp(out[i].word,word,visible_len)==0){
+        if(c.score>out[i].score){copy_word_bytes(word,visible_len,c.word);out[i]=c;hashes[i]=h;top_reposition(out,order,*n,(uint32_t)i);}return;
+    }
+    size_t pos=top_position(out,order,*n,c.score);
+    if(*n<cap){
+        uint32_t slot=(uint32_t)(*n);copy_word_bytes(word,visible_len,c.word);out[slot]=c;hashes[slot]=h;
+        for(size_t i=*n;i>pos;i--)order[i]=order[i-1];order[pos]=slot;(*n)++;return;
+    }
+    if(pos>=cap)return;
+    uint32_t slot=order[cap-1];copy_word_bytes(word,visible_len,c.word);out[slot]=c;hashes[slot]=h;
+    for(size_t i=cap-1;i>pos;i--)order[i]=order[i-1];order[pos]=slot;
+}
+static int materialize_top_order(ZYCandidate *out,const uint32_t *order,size_t n){
+    if(!n)return 0;
+    ZYCandidate stack_tmp[64];ZYCandidate *tmp=stack_tmp;
+    if(n>64){tmp=(ZYCandidate*)malloc(n*sizeof(ZYCandidate));if(!tmp)return -1;}
+    for(size_t i=0;i<n;i++)tmp[i]=out[order[i]];
+    memcpy(out,tmp,n*sizeof(ZYCandidate));
+    if(tmp!=stack_tmp)free(tmp);
+    return 0;
 }
 static int single_prefix_match(const ZYDictionary *d,uint32_t wid,const char *q,size_t qn,size_t *consumed,int *kind){
     uint32_t a=d->pron_offsets[wid],b=d->pron_offsets[wid+1];if(b-a!=1)return 0;const char *s;size_t sn;if(zy_dict_syllable(d,d->syllable_ids[a],&s,&sn)!=0)return 0;
@@ -130,47 +169,52 @@ static int single_prefix_match(const ZYDictionary *d,uint32_t wid,const char *q,
 
 int zy_engine_open(ZYEngine *e,const char *path){memset(e,0,sizeof(*e));return zy_dict_open(&e->dict,path);}void zy_engine_close(ZYEngine *e){zy_dict_close(&e->dict);}
 size_t zy_engine_lookup(ZYEngine *e,const char *query,ZYCandidate *out,size_t cap){
-    if(!e||!query||!out||!cap)return 0;size_t qn=strlen(query);if(!qn)return 0;uint32_t first=utf8_cp(query,qn),a=0,b=0;if(zy_dict_bucket(&e->dict,first,&a,&b)!=0)return 0;size_t n=0;
+    if(!e||!query||!out||!cap)return 0;size_t qn=strlen(query);if(!qn)return 0;uint32_t first=utf8_cp(query,qn),a=0,b=0;if(zy_dict_bucket(&e->dict,first,&a,&b)!=0)return 0;size_t n=0;uint32_t orderbuf[256],*order=orderbuf,*orderheap=NULL;uint64_t hashbuf[256],*hashes=hashbuf,*hashheap=NULL;if(cap>256){orderheap=(uint32_t*)malloc(cap*sizeof(uint32_t));hashheap=(uint64_t*)malloc(cap*sizeof(uint64_t));if(!orderheap||!hashheap){free(orderheap);free(hashheap);return 0;}order=orderheap;hashes=hashheap;}
     for(uint32_t bi=a;bi<b;bi++){
         uint32_t wid=e->dict.bucket_word_ids[bi];MR m=match_word(&e->dict,wid,query,qn);if(!m.valid)continue;
         int rem=m.remaining;long sc=(long)klass(m)*1000000L+(m.exact?600000L:0)-((rem*15000L)>200000L?200000L:rem*15000L)+(long)e->dict.weights[wid]*1000L;
-        ZYCandidate c={0};c.id=wid;c.score=(int32_t)sc;c.match_class=(uint8_t)klass(m);c.matched_chars=(uint8_t)m.matched;c.dictionary_exact=(uint8_t)m.exact;c.word_complete=(uint8_t)m.word_complete;c.final_syllable_partial=(uint8_t)(!m.exact&&!m.word_complete&&m.remaining==0&&m.matched>0);copy_word(&e->dict,wid,c.word);
+        const char *wp=NULL;size_t wn=0;if(zy_dict_word(&e->dict,wid,&wp,&wn)!=0)continue;
+        ZYCandidate c={0};c.id=wid;c.score=(int32_t)sc;c.match_class=(uint8_t)klass(m);c.matched_chars=(uint8_t)m.matched;c.dictionary_exact=(uint8_t)m.exact;c.word_complete=(uint8_t)m.word_complete;c.final_syllable_partial=(uint8_t)(!m.exact&&!m.word_complete&&m.remaining==0&&m.matched>0);
         // A long mixed abbreviation that has already reached every syllable is
         // specific enough for a soft recall priority.  Requiring 5+ syllables
         // prevents short input from surfacing unrelated long dictionary words.
-        if(m.initials>0&&m.matched>=5&&m.remaining==0&&codepoints(c.word,strlen(c.word))>=5)c.preference_rank=1;
-        insert_top(out,&n,cap,c);
+        if(m.initials>0&&m.matched>=5&&m.remaining==0&&codepoints(wp,wn)>=5)c.preference_rank=1;
+        insert_top_word(out,order,hashes,&n,cap,c,wp,wn);
     }
     // Single-character fallback for the first input syllable.
     for(uint32_t bi=a;bi<b;bi++){
         uint32_t wid=e->dict.bucket_word_ids[bi];size_t consumed=0;int k=0;if(!single_prefix_match(&e->dict,wid,query,qn,&consumed,&k))continue;
         const char *wp;size_t wn;if(zy_dict_word(&e->dict,wid,&wp,&wn)!=0||codepoints(wp,wn)!=1)continue;
-        ZYCandidate c={0};c.id=wid;c.score=k*1000000+(int)e->dict.weights[wid]*1000-100000;c.match_class=(uint8_t)k;c.matched_chars=1;c.consume_codepoints=(uint8_t)codepoints(query,consumed);copy_word(&e->dict,wid,c.word);insert_top(out,&n,cap,c);
+        ZYCandidate c={0};c.id=wid;c.score=k*1000000+(int)e->dict.weights[wid]*1000-100000;c.match_class=(uint8_t)k;c.matched_chars=1;c.consume_codepoints=(uint8_t)codepoints(query,consumed);insert_top_word(out,order,hashes,&n,cap,c,wp,wn);
     }
     // Raw Bopomofo literal candidate is intentionally lowest-priority and never learned as a Chinese word.
     ZYCandidate lit={0};lit.id=UINT32_MAX;lit.score=INT_MIN/2;lit.literal=1;size_t copy=qn<ZY_CANDIDATE_WORD_BYTES-1?qn:ZY_CANDIDATE_WORD_BYTES-1;memcpy(lit.word,query,copy);lit.word[copy]=0;
-    if(n<cap){out[n++]=lit;}else{out[cap-1]=lit;}
+    if(n<cap){out[n++]=lit;}else{out[order[cap-1]]=lit;}
     qsort(out,n,sizeof(out[0]),zy_candidate_rank_compare);
+    free(orderheap);free(hashheap);
     return n;
 }
 
 
 size_t zy_engine_lookup_prefix(ZYEngine *e,const char *query,ZYCandidate *out,size_t cap){
-    if(!e||!query||!out||!cap)return 0;size_t qn=strlen(query);if(!qn)return 0;uint32_t first=utf8_cp(query,qn),a=0,b=0;if(zy_dict_bucket(&e->dict,first,&a,&b)!=0)return 0;size_t n=0;
+    if(!e||!query||!out||!cap)return 0;size_t qn=strlen(query);if(!qn)return 0;uint32_t first=utf8_cp(query,qn),a=0,b=0;if(zy_dict_bucket(&e->dict,first,&a,&b)!=0)return 0;size_t n=0;uint32_t orderbuf[256],*order=orderbuf,*orderheap=NULL;uint64_t hashbuf[256],*hashes=hashbuf,*hashheap=NULL;if(cap>256){orderheap=(uint32_t*)malloc(cap*sizeof(uint32_t));hashheap=(uint64_t*)malloc(cap*sizeof(uint64_t));if(!orderheap||!hashheap){free(orderheap);free(hashheap);return 0;}order=orderheap;hashes=hashheap;}
     // Reserve a small fraction of prefix edges for longer (3+ syllable)
     // matches. This prevents one-character fallbacks from consuming all
     // composer edge slots before a real long word such as 資料庫 can be considered,
     // while avoiding noisy two-syllable abbreviation ambiguities.
     enum { ZY_PREFIX_MULTI_RESERVE_MAX = 4 };
-    ZYCandidate multi[ZY_PREFIX_MULTI_RESERVE_MAX];size_t mn=0;
+    ZYCandidate multi[ZY_PREFIX_MULTI_RESERVE_MAX];uint32_t multi_order[ZY_PREFIX_MULTI_RESERVE_MAX];uint64_t multi_hash[ZY_PREFIX_MULTI_RESERVE_MAX];size_t mn=0;
     size_t multi_reserve=cap>=6?cap/3:1;if(multi_reserve>ZY_PREFIX_MULTI_RESERVE_MAX)multi_reserve=ZY_PREFIX_MULTI_RESERVE_MAX;if(multi_reserve>cap)multi_reserve=cap;
     for(uint32_t bi=a;bi<b;bi++){
         uint32_t wid=e->dict.bucket_word_ids[bi];MR m=match_word_mode(&e->dict,wid,query,qn,1);if(!m.valid||!m.consumed)continue;
         int rem=m.remaining;long sc=(long)klass(m)*1000000L+(m.exact?600000L:0)-((rem*15000L)>200000L?200000L:rem*15000L)+(long)e->dict.weights[wid]*1000L;
-        ZYCandidate c={0};c.id=wid;c.score=(int32_t)sc;c.match_class=(uint8_t)klass(m);c.matched_chars=(uint8_t)m.matched;c.dictionary_exact=(uint8_t)m.exact;c.word_complete=(uint8_t)m.word_complete;c.final_syllable_partial=(uint8_t)(!m.exact&&!m.word_complete&&m.remaining==0&&m.matched>0);c.consume_codepoints=(uint8_t)codepoints(query,m.consumed);copy_word(&e->dict,wid,c.word);insert_top(out,&n,cap,c);
-        if(codepoints(c.word,strlen(c.word))>1 && c.matched_chars>=3)
-            insert_top(multi,&mn,multi_reserve,c);
+        const char *wp=NULL;size_t wn=0;if(zy_dict_word(&e->dict,wid,&wp,&wn)!=0)continue;
+        ZYCandidate c={0};c.id=wid;c.score=(int32_t)sc;c.match_class=(uint8_t)klass(m);c.matched_chars=(uint8_t)m.matched;c.dictionary_exact=(uint8_t)m.exact;c.word_complete=(uint8_t)m.word_complete;c.final_syllable_partial=(uint8_t)(!m.exact&&!m.word_complete&&m.remaining==0&&m.matched>0);c.consume_codepoints=(uint8_t)codepoints(query,m.consumed);insert_top_word(out,order,hashes,&n,cap,c,wp,wn);
+        if(codepoints(wp,wn)>1 && c.matched_chars>=3)
+            insert_top_word(multi,multi_order,multi_hash,&mn,multi_reserve,c,wp,wn);
     }
+    if(materialize_top_order(out,order,n)!=0){free(orderheap);free(hashheap);return 0;}
+    if(materialize_top_order(multi,multi_order,mn)!=0){free(orderheap);free(hashheap);return 0;}
     for(size_t mi=0;mi<mn;mi++){
         int present=0;for(size_t oi=0;oi<n;oi++)if(strcmp(out[oi].word,multi[mi].word)==0){present=1;break;}
         if(present)continue;
@@ -178,6 +222,7 @@ size_t zy_engine_lookup_prefix(ZYEngine *e,const char *query,ZYCandidate *out,si
         if(victim<n)out[victim]=multi[mi];else if(n<cap)out[n++]=multi[mi];
     }
     qsort(out,n,sizeof(out[0]),zy_candidate_rank_compare);
+    free(orderheap);free(hashheap);
     return n;
 }
 

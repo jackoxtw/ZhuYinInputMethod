@@ -82,12 +82,19 @@ def test_return_with_candidates_selects_exactly_one_candidate_and_never_commits_
     candidate_branch = body[candidate_start:candidate_end]
     assert '[self chooseSelected:client]' in candidate_branch
     assert 'return YES' in candidate_branch
-    assert 'learnAndCommit:' not in candidate_branch
+    # Safe mode remains the default.  Same-press commit is allowed only behind
+    # the persisted quick-confirm flag, after the selected candidate resolved
+    # all remaining Zhuyin and there is staged Chinese to commit.
+    assert 'boolForKey:ZYQuickEnterConfirmKey' in candidate_branch
+    assert 'quickConfirm' in candidate_branch
+    assert '!_composition.length' in candidate_branch
+    assert '_pieceCount' in candidate_branch
+    assert '[self learnAndCommit:client]' in candidate_branch
 
-    # Staged text can only be committed by a later Return after there are no
-    # candidates and no unresolved Zhuyin left.
+    # Safe mode still commits staged text only on a later Return after there are
+    # no candidates and no unresolved Zhuyin left.
     composition_guard = body.find('if(_composition.length)', candidate_end - len('if(_composition.length)'))
-    commit_pos = body.find('[self learnAndCommit:client]')
+    commit_pos = body.find('[self learnAndCommit:client]', composition_guard)
     assert composition_guard >= 0
     assert commit_pos > composition_guard
 

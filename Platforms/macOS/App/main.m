@@ -15,6 +15,9 @@ int main(int argc,const char *argv[]){
     @autoreleasepool {
         if(!ZYRuntimeInitialize()) return 2;
         NSApplication *app = [NSApplication sharedApplication];
+        // Keep the IME as an accessory agent rather than LSBackgroundOnly. Recent macOS
+        // can refuse Accessibility event taps owned by LSBackgroundOnly processes.
+        [app setActivationPolicy:NSApplicationActivationPolicyAccessory];
         ZYAppDelegate *delegate = [ZYAppDelegate new];
         app.delegate = delegate;
         NSBundle *bundle = [NSBundle mainBundle];

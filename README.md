@@ -11,7 +11,22 @@
 
 **逐音輸入法**是一套原生 macOS 台灣注音輸入法，使用 InputMethodKit + Objective-C++ 製作介面，核心查詞、學習與繁簡轉換以 C99 實作。專案不使用 WebView，主詞庫與繁簡資料以唯讀二進位格式載入，目標是維持低常駐記憶體、低 SSD 寫入與快速候選反應。
 
-目前版本：**v0.1.59 / build 62**
+目前版本：**v0.1.72 / build 75 — Return Guard per-PID / annotated-session 路徑**
+
+### build 75：直接攔截送往目前 App 的 Enter
+
+- Return Guard 優先使用 `CGEventTapCreateForPid`，把 tap 掛在目前前景 App 的最終事件投遞路徑；組字中的 Return/Keypad Enter 會在目標 App 收到前被刪除，再由逐音手動推進既有 IME Enter 狀態機。
+- 目前前景 App PID 由 InputMethodKit controller 在組字狀態同步時更新；只有 PID 真的改變才重建 tap，不會每個按鍵重建。
+- 若 per-PID tap 建立失敗，自動依序退回 `kCGAnnotatedSessionEventTap`、`kCGSessionEventTap`，設定頁會顯示實際使用的路徑與 PID。
+- 保留 build 74 的專用 CFRunLoop thread、常駐 pass-through、atomic armed 狀態、Mach port 失效重建與 Enter keyDown/keyUp 配對攔截。
+- 設定頁新增「路徑：per-PID / annotated-session / session · PID」診斷，不再只靠 DOM log 猜測事件到底走哪一層。
+
+### build 73：網頁 Enter 完整防誤送修正
+
+- macOS IME 改為 `LSBackgroundOnly=false` + `LSUIElement=true` 的 accessory agent；近期 macOS 對 `LSBackgroundOnly` 行程即使顯示輔助使用已授權，仍可能拒絕 active `CGEventTap`。
+- 設定頁不再只顯示「已授權」：會顯示 Event Tap 是否真正建立／啟用，並累計被 Guard 吃掉的 Enter keyDown／keyUp 次數。
+- InputMethodKit 的 `keyCode=229` / composing 防護仍保留；完整防誤送是第二層，成功啟用時 DOM 不會收到用來選字的實體 Enter。
+- 本機 ad-hoc 重編譯可能讓 macOS TCC 輔助使用授權失效；若狀態顯示「已授權但 Event Tap 建立失敗」，請移除後重新加入逐音輸入法的輔助使用權限。
 
 一般使用者請直接閱讀 [一般使用者安裝說明](一般使用者安裝說明.md)，不需要編譯專案。
 
@@ -24,7 +39,7 @@
 HTML 試用版是單檔 Canvas 原型，使用同一份離線詞庫資料，方便在瀏覽器先體驗輸入與候選排序；它不是 macOS 系統輸入法，不會寫入其他應用程式。
 
 - 候選面板採與原生版相同的深色自適應格局：短候選 10 欄、中長詞 5 欄、長詞 4 欄。
-- 右側提供「繁／簡」「說明」「清除學習」控制列；按「說明」可查看 v0.1.59 的快速操作。
+- 右側提供「繁／簡」「說明」「清除學習」控制列；按「說明」可查看目前版本的快速操作。
 - 單按 `Shift` 切英文時，未確認注音會取消；已確認中文會先送出。`Shift + 1～0`、`Shift + A～J` 仍優先作為候選快捷鍵。
 - 按住 `Option` 時，只有已學習候選會顯示「刪除」；點選即可刪除其排序／自訂詞學習資料。
 - 學習資料只保存在該瀏覽器的本機儲存空間；右側「清除學習」可立即清除。
@@ -38,13 +53,15 @@ HTML 試用版是單檔 Canvas 原型，使用同一份離線詞庫資料，方�
 - 支援完整聲調、無聲調、聲母縮寫、混合注音查詢與單字 fallback。單符號完整音節（例如 `ㄧ`、`ㄨ`、`ㄩ`）會正確視為完整無聲調音節；最後一個仍在輸入中的音節也支援前綴匹配，例如輸入 `ㄐㄧㄧㄊ` 即可開始顯示「記憶體」。
 - 支援**連續注音自動分詞／組句**：不必在每個詞後按 Enter，例如連續輸入 `ㄐㄧㄣㄊㄧㄢㄊㄧㄢㄑㄧˋ` 可直接顯示「今天天氣」。組句不會提前提交前詞；已選片段與未完成注音都保留在候選窗上方的待確認列，直到最後確認才寫入應用程式。
 - 台灣常用讀音與多音字補強；安裝時可套用 `libchewing-data` 完整資料。
+- **內建地名／交通詞庫**：完整涵蓋台灣 22 縣市、368 鄉鎮市區、207 個常用國家／地區名稱與別稱；另加入 17,565 個去除「段」的台灣道路主名稱、543 筆台鐵／高鐵／捷運／輕軌／林鐵車站來源列，以及民航局列出的 17 座機場與常用別稱。所有項目在建置時注入同一份 ZYDICT2，執行時不需另外常駐 CSV。
 - 候選窗跟隨目前文字游標，支援多螢幕與可視範圍限制。
 - 一般注音候選採**自適應欄數**：短候選維持 10 欄；較長詞組自動改為 5 欄或 4 欄，增加每格寬度並支援完整換行顯示。
 - Emoji／中文標點候選可依內容自動擴展為 **1～5 行**，每頁最多 50 個。
 - `F9` 或候選窗上的「繁／簡」按鈕可切換最終輸出字體；按鈕左上角有小型 `F9` 提示。
-- 「繁／簡」按鈕下方提供「說明」按鈕，可開啟不搶焦點的快速操作說明；再次點擊或按 `Esc` 即可關閉。
+- 「繁／簡」按鈕下方提供「說明」與「設定」按鈕；「設定」會開啟獨立設定頁，可切換 **Enter 確認模式**（預設「瀏覽器安全模式」／可選「快速確認模式」），並可在「學習資料」區塊執行「清除學習資料」，仍保留二次確認避免誤觸。
+- **完整 Enter 防誤送**：設定頁可啟用系統級 Return Guard。取得 macOS「輔助使用」權限後，`CGEventTap` 會在專用事件執行緒常駐 pass-through；只有逐音仍有組字／候選時才 armed 並主動過濾實體 Return 與 Keypad Enter 的 keyDown/keyUp，讓瀏覽器 JavaScript 根本收不到這顆確認鍵；未授權時自動退回標準 InputMethodKit 安全路徑。
 - 簡體輸出採 **OpenCC 1.3.1 `tw2s`** 邏輯，支援台灣正體異體字與詞組例外。
-- 使用者選字與自建詞組學習保存在本機；相同注音查詢會優先顯示上次明確選過的候選，並以批次方式寫入以降低 SSD 寫入頻率。
+- 使用者選字與自建詞組學習保存在本機；相同注音查詢會優先顯示上次明確選過的候選。Learning v3 以約 1 秒 debounce 合併連續輸入後落盤；跨程序保存改為重播本程序尚未落盤的增量，避免同詞同時 +1 遺失與刪除資料被舊程序復活。
 - 候選長度採**音節數優先**：目前輸入匹配 1／2／3 個音節時，前段優先只顯示 1／2／3 字的完整候選；若有以前真正學習過、且讀音可由目前輸入繼續延伸的較長詞，會接在等長候選之後。一般未學習的較長詞不會混入前段，學習延伸詞依字數由短到長，再依使用頻率與最近使用排序。
 - 已學過的多字詞支援**縮寫召回**：查詢先擴大候選池再套學習排序；例如曾選過「資料庫」後，輸入 `ㄗㄌㄎㄨˋ` 仍可把它從較後面的原始詞庫排名拉回候選前段。Composer 亦保留至少匹配 3 個音節的多字詞 edge，避免被大量單字 fallback 淹沒。
 - 內建官方品牌詞 **「逐音輸入法」**（`ㄓㄨˊ ㄧㄣ ㄕㄨ ㄖㄨˋ ㄈㄚˇ`）：完整讀音直接列為第一候選；5 音節以上的混合縮寫可使用通用長詞召回，例如 `ㄓㄧㄕㄖㄈ`。短輸入如 `ㄓㄨˊ` 不會強制插入品牌候選。
@@ -77,7 +94,7 @@ xcode-select --install
 此指令會編譯、產生 `AppIcon.icns`、以 ad-hoc 簽章驗證 App，並更新：
 
 ```text
-Release/逐音輸入法-v0.1.59/
+Release/逐音輸入法-v0.1.72/
 ├── 逐音輸入法.app
 ├── 安裝逐音輸入法.command
 └── 說明.txt
@@ -306,10 +323,13 @@ ZIP 內建的 `Shared/Resources/dictionary.bin` 已包含核心台灣讀音修�
 - 同一注音的查詢頻率最多按 8 次計分（最高 +40,000）。
 - 同一注音最近明確選過的字典候選會取得最高 `preference_rank=2`；64 個 learning events 未再選後，強制優先失效並回到一般分數競爭。
 - 已學習的精確使用者詞組使用 `preference_rank=1`；詞組頻率最多按 16 次計分（最高 +128,000），另有最高 +160,000 的近期分數，32 個 events 後歸零。
-- 同一組注音若改選另一個字典候選，新的選擇會立即取代舊的 query preference。
+- 同一組注音可以同時保留多個候選的使用歷史；最後一次明確選擇才取得 `preference_rank=2`，其他曾選候選仍保留各自的頻率分數，不會被整筆覆蓋。
 - v0.1.22 起，Runtime 先召回 256 個原始字典候選、套用個人學習與長縮寫柔性優先後，再截成前 128 個進入組句／使用者詞組合併；曾選過、且本次完整對上至少 2 個音節的多字詞仍會取得 `preference_rank=1` 的柔性召回優先；5 音節以上、已碰到全部音節的長縮寫也會取得同級柔性優先。明確同 query 的最近選擇仍維持更高的 `preference_rank=2`。
 - v0.1.21 起，已學過的多字詞若已匹配到全部音節、只是最後一個音節仍在輸入中，也可取得同一級柔性召回優先；例如 `ㄗㄌㄎ` 可提前召回「資料庫」，但只輸入 `ㄗㄌ` 時不會過早強推。
-- 舊版 `learning_A.dat` / `learning_B.dat` 可直接沿用；舊 count 不會被清除，只是在計分時套用新上限。
+- v0.1.65 起使用 Learning v3：容量維持字詞 4096、query×candidate 8192、使用者組句 1024；`ZYLEARN1`、`ZYLEARN2` 都會自動遷移到 `ZYLEARN3`，不需要清除既有學習。
+- Learning v3 會保存「字詞＋讀音」stable identity 與詞庫 fingerprint；詞庫重建後可重新對應新的 dictionary ID，降低更新版本後學習失效的風險。
+- 使用者組句只保留實際比對需要的單一 key（優先讀音，否則原始 query），並使用小型 pending-delta metadata；實測 `ZYLearning` 結構由 1,290,288 bytes 降為 1,094,720 bytes，約減少 15.2% 常駐核心學習記憶體。
+- 主詞庫格式升級為 `ZYDICT2`，載入時會先驗證 offset sentinel、單調性、syllable ID 與 bucket word ID 範圍；讀取端仍相容舊 `ZYDICT1`。
 
 學習資料儲存在：
 
@@ -320,9 +340,10 @@ ZIP 內建的 `Shared/Resources/dictionary.bin` 已包含核心台灣讀音修�
 
 採 A/B snapshot + CRC 設計：
 
-- 一般打字、選字與候選排序只修改 RAM。
-- 累積至少 32 次 dirty mutation，或距上次保存至少 15 分鐘且有變更，才允許批次寫入。
-- 正常程式結束時才做一次強制同步。
+- 一般打字與候選排序先更新 RAM；learning event 完成後採約 1 秒 debounce 保存，連續快速輸入會合併寫入，避免每個字都寫 SSD。
+- 若持續輸入累積 32 次 dirty mutation，或距上次保存超過 30 秒，會直接保存，不必等停止打字。
+- 切換 App／輸入法停用、controller 關閉與程式正常結束時都會強制同步；只有已經選好的 staged pieces 會在生命週期切換時提交／學習，未完成注音不會被自動選字。
+- A/B snapshot 以 file lock 協調多程序，保存前合併較新的 generation，再透過 temp file + `fsync` + atomic rename 寫入；避免更新輸入法期間新舊程序互相覆蓋。
 - 主詞庫 `dictionary.bin` 與繁簡表 `t2s.bin` 執行期永遠唯讀。
 
 ### 游標定位診斷
@@ -475,7 +496,7 @@ cat /tmp/zhu-yin-caret.log
 目前應顯示：
 
 ```text
-0.1.59
+0.1.63
 ```
 
 ### OpenCC 或 libchewing-data 下載失敗會不能安裝嗎？
@@ -492,6 +513,9 @@ cat /tmp/zhu-yin-caret.log
 
 - **OpenCC**：Apache License 2.0；逐音輸入法使用其台灣正體→簡體 `tw2s` 字典資料建立離線轉換表。
 - **libchewing-data**：LGPL-2.1-or-later；安裝時可用於補強台灣注音與多音字讀音。
+- **台灣道路主名稱**：建置快照衍生自 `donma/TaiwanAddressCityAreaRoadChineseEnglishJSON`（MIT）；本專案保留其 MIT 授權聲明。
+- **軌道車站名稱**：建置快照只抽取車站名稱事實欄位；上游資料來源包含交通部 TDX、OpenStreetMap、台鐵等。若涉及 OpenStreetMap 衍生資料，應保留 `© OpenStreetMap contributors` 與 ODbL 說明。
+- **台灣機場清單**：參考交通部民用航空局「機場分佈圖」。
 - 專案內另保留相關來源所需 NOTICE 與授權文件。
 
 發行或重新分發前，請保留 `Licenses/` 內的第三方授權與 NOTICE。

@@ -10,3 +10,7 @@ assert s.index('repair_dictionary_taiwan.py') < s.index('cp "$DICT_FOR_BUILD" "$
 assert 'inject_dictionary_words.py' in s
 assert 'Shared/Resources/brand_words.csv' in s
 assert s.index('repair_dictionary_taiwan.py') < s.index('inject_dictionary_words.py') < s.index('cp "$DICT_FOR_BUILD" "$RES/dictionary.bin"')
+
+assert 'taiwan_road_main_names.csv' in s
+assert 'taiwan_transit_stations.csv' in s
+assert 'taiwan_airports.csv' in s

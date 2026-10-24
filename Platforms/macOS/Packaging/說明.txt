@@ -1,4 +1,4 @@
-逐音輸入法 v0.1.59（Apple Silicon／arm64）
+逐音輸入法 v0.1.72（Apple Silicon／arm64）
 =============================================
 
 這個資料夾已經包含編譯完成的輸入法，不需要 Xcode 或自行編譯。
@@ -18,3 +18,10 @@
 - 因此每台 Mac 第一次執行安裝器或輸入法時，可能需要使用者在「隱私權與安全性」明確批准。
 - 安裝器會將輸入法安裝到 /Library/Input Methods，需要管理員密碼。
 - 此 Release 僅支援 Apple Silicon（M1/M2/M3/M4 或更新機型）。Intel Mac 請使用另行編譯的 x86_64 版本。
+
+
+網頁聊天 Enter 防誤送：
+候選窗 → 設定 → 網頁聊天防誤送 → 完整防誤送。若要讓瀏覽器完全收不到確認候選用的 Enter，請按「授權輔助使用」，並在「系統設定 → 隱私權與安全性 → 輔助使用」允許逐音輸入法。未授權時會自動退回標準 InputMethodKit 安全模式。
+
+【build 75 完整防誤送】
+Return Guard 會優先針對目前前景 App 建立 per-PID Event Tap；設定頁會顯示「per-PID / annotated-session / session」與 PID。若 per-PID 不可用會自動降級，不影響一般注音輸入。若所有 Event Tap 都建立失敗，再執行「重設完整防誤送權限.command」後重新授權。

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>逐音輸入法 Return Guard 診斷</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang TC",sans-serif;max-width:900px;margin:40px auto;padding:0 20px;background:#111;color:#eee}
+textarea{width:100%;min-height:130px;font-size:20px;padding:14px;box-sizing:border-box;background:#1d1d1d;color:#fff;border:1px solid #555;border-radius:10px}
+pre{white-space:pre-wrap;background:#181818;border:1px solid #333;border-radius:10px;padding:14px;min-height:240px;max-height:460px;overflow:auto}
+button{font-size:14px;padding:8px 14px;border-radius:8px;border:0} .ok{color:#9f9}.warn{color:#ffb86c}
+</style>
+</head>
+<body>
+<h1>逐音輸入法 Return Guard 診斷 · build 75</h1>
+<p>在下方輸入框使用逐音輸入法組字，候選尚未完成時按 Enter。若「完整防誤送」正常，這顆確認候選用的 Enter 應由系統級 Guard 攔截，事件紀錄中不應出現對應的 <code>keydown Enter</code> / <code>keyup Enter</code>。</p>
+<textarea id="box" placeholder="在這裡用逐音輸入法測試…"></textarea>
+<p><button id="clear">清除紀錄</button>　<span id="state" class="warn">等待輸入…</span></p>
+<pre id="log"></pre>
+<script>
+const box=document.querySelector('#box'),log=document.querySelector('#log'),state=document.querySelector('#state');
+let composing=false,seq=0,pendingImeEnter=false;
+function add(type,e={}){
+  const row=`${String(++seq).padStart(3,'0')}  ${type.padEnd(16)} key=${e.key??'-'} code=${e.code??'-'} keyCode=${e.keyCode??'-'} isComposing=${e.isComposing??'-'} localComposing=${composing}`;
+  log.textContent+=row+'\n';log.scrollTop=log.scrollHeight;
+}
+box.addEventListener('compositionstart',e=>{composing=true;add('compositionstart',e);state.textContent='組字中';state.className='warn'});
+box.addEventListener('compositionupdate',e=>add('compositionupdate',e));
+box.addEventListener('compositionend',e=>{add('compositionend',e);composing=false;state.textContent='組字結束';state.className='ok'});
+box.addEventListener('keydown',e=>{
+  add('keydown',e);
+  if(e.key==='Enter'&&(composing||e.isComposing||e.keyCode===229)){
+    pendingImeEnter=true;
+    state.textContent='⚠ 網頁收到組字中的 Enter keydown';state.className='warn';
+  }
+});
+box.addEventListener('keyup',e=>{
+  add('keyup',e);
+  if(e.key==='Enter'&&(pendingImeEnter||composing||e.isComposing)){
+    state.textContent='⚠ 網頁收到組字中的 Enter keyup（同一顆確認鍵）';state.className='warn';
+    pendingImeEnter=false;
+  }
+});
+box.addEventListener('beforeinput',e=>add('beforeinput',{key:e.inputType,code:e.data,keyCode:'-',isComposing:e.isComposing}));
+box.addEventListener('input',e=>add('input',{key:e.inputType,code:e.data,keyCode:'-',isComposing:e.isComposing}));
+document.querySelector('#clear').onclick=()=>{log.textContent='';seq=0;state.textContent='等待輸入…';state.className='warn';box.focus()};
+box.focus();
+</script>
+</body>
+</html>

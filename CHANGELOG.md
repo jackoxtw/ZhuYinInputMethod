@@ -1,5 +1,123 @@
 # 版本歷程
 
+## v0.1.72 / build 75
+
+- Return Guard 改為三層路由，優先 `CGEventTapCreateForPid(frontmostPID, ...)`，直接過濾準備送往目前瀏覽器／App 的 Return；失敗才退回 `kCGAnnotatedSessionEventTap`，最後才使用原本的 `kCGSessionEventTap`。
+- InputMethodKit controller 在組字狀態同步時發布 `NSWorkspace.frontmostApplication.processIdentifier`；只有目標 PID 改變才重建 tap，避免 per-keystroke churn。
+- per-PID tap 吞掉實體 Enter 後，仍由 main queue 呼叫原本 `consumeReturnWhileComposing:`，因此候選選取、快速確認、學習與 commit 規則不另寫第二套。
+- 設定頁新增目前 tap 路徑與 PID；保留 Tap／Enter／armed／drop 計數，可同時判斷「tap 根本沒看到事件」與「事件看到了但未 armed」。
+- 保留 build 74 的專用 CFRunLoop thread、常駐 active filter、atomic 共享狀態、Mach port 失效自癒、Return/Keypad Enter keyDown+keyUp 配對攔截與 repeat 防連發。
+- 標準 InputMethodKit `keyCode=229 / isComposing` 路徑仍保留，未授權 Accessibility 時不影響既有輸入。
+
+## v0.1.70 / build 73
+
+- 修正 build 72「輔助使用看似已授權，但 CGEventTap 未真正攔住 Enter」：輸入法程序改為 accessory agent（`LSBackgroundOnly=false`、`LSUIElement=true`）。
+- Return Guard 新增實際 Event Tap 建立／啟用狀態與 keyDown/keyUp 攔截計數。
+- 設定頁可重新檢查／啟動 Guard，不再把 `AXIsProcessTrusted()` 等同於 Guard 已工作。
+- 保留 IMK `229 + composing` 第一層防護與 Emoji／標點 marked composition。
+
+## v0.1.69 / build 72
+
+- 網頁聊天 Enter 防誤送升級為兩層架構：保留 InputMethodKit `handleEvent:client:` 正規 consume 路徑，新增可選的系統級 Return Guard。
+- 新增 `ZYReturnGuard.mm`：使用 `kCGSessionEventTap + kCGHeadInsertEventTap + kCGEventTapOptionDefault`，只在逐音有組字／候選時啟用，直接刪除 Return（36）與 Keypad Enter（76）的實體 keyDown/keyUp，因此取得權限後網頁 JavaScript 不會收到確認候選用的 Enter。
+- Return Guard 只監看 Enter/Keypad Enter；閒置時 event tap 關閉，正常 Enter 完全放行。長按 repeat 不會連續推進候選階段，並保留配對 keyUp 攔截直到實體按鍵放開。
+- 設定頁新增「完整防誤送」與「授權輔助使用」。未取得 Accessibility 權限時不會在打字途中自動跳權限提示，而是透明退回既有 InputMethodKit 安全模式。
+- 修正 Emoji／中文標點候選模式先前未同步 `markedText` 的缺口；開啟／關閉特殊候選時現在也同步 composition 狀態，避免瀏覽器把特殊候選的 Enter 當成一般送出鍵。
+- 新增 `test_strict_return_guard_static.py`，固定檢查 active event filter、Return/keyUp 雙向攔截、repeat 防連發、權限只由設定頁主動請求、特殊候選 marked state 與正式 build script 連結。
+
+## v0.1.68 / build 71
+
+- 補齊台灣交通與道路詞庫：新增 17,565 個道路主名稱，建置時會移除「一段／二段…」等段別，避免同一路名因段數重複膨脹。
+- 新增 543 筆台灣軌道車站來源列，涵蓋台鐵、高鐵、阿里山林鐵、台北／桃園／台中／高雄捷運與輕軌、新北捷運與三鶯線；依系統產生「站／車站／台鐵／高鐵／捷運／機捷／輕軌」等常用輸入別名。
+- 新增民航局機場分布頁列出的 17 座機場，並補入桃園機場、桃機、松山機場、小港機場、清泉崗機場、馬公機場等常用別稱。
+- 地名產生器擴充道路／車站／機場輸入與完整性檢查；道路、車站、機場來源 CSV 只在建置階段使用，正式執行仍只 mmap 單一 `dictionary.bin`，不增加 CSV 常駐記憶體。
+- Bundled ZYDICT2 更新為 98,054 詞；本次地名／交通生成層共 21,529 個 word+pron 項目。Composer workspace 仍維持 build 70 的約 264 KB 上限設計。
+- HTML Canvas 原型的內嵌詞庫同步到同一份 build 71 ZYDICT2，新增同步工具並以 byte-for-byte round-trip 測試防止 HTML／原生詞庫再次漂移。
+- 新增道路、軌道車站、機場、罕見道路用字、多音字 `期 → ㄑㄧˊ` 與正式查詢引擎回歸測試。
+
+## v0.1.67 / build 70
+
+- 候選 Top-K 熱路徑改為「slot index 排序＋64-bit word hash」：不再為每個匹配候選搬動整個 `ZYCandidate` 結構；低排名同分候選仍保留既有穩定選取語意。
+- 候選文字改為 Lazy copy：先以 dictionary mmap 內的字串做 hash／長度判定，只有真正進入 Top-K 的候選才複製到輸出 buffer，減少大量短查詢時的 memcpy。
+- `zy_dict_bucket()` 對目前標準注音 bucket 改為固定 index O(1) 查表；非標準／舊字典仍保留 binary-search fallback。
+- Composer beam path 移除每條路徑固定 `text[128]`，改存 64-bit output hash、byte length 與 segment IDs；只有最終候選或 hash collision 驗證時才重建文字。
+- Composer path 由 184 bytes 降至 64 bytes；129×32 beam workspace（含 counts）由約 760,584 bytes 降至 264,321 bytes，減少約 496 KB（約 65%）。
+- 新增 `zy_composer_workspace_bytes()` 與 `test_lookup_optimization.c`，固定檢查 workspace 不超過 300 KB，並驗證常用注音 bucket 的固定查表可正常定位。
+- 以 build 69 相同候選資料做結果比對，完整／prefix／composer 的代表性查詢輸出保持一致。
+- 微基準（同一測試環境）中，`ㄐ` 完整查詢約由 2.18 ms 降至約 0.77 ms；不同查詢依 bucket 大小約有 1.3～2.8 倍不等改善。
+
+## v0.1.66 / build 69
+
+- 新增台灣完整行政區地名層：22 縣市、368 鄉鎮市區全部納入正式 `dictionary.bin`。
+- 行政區同時加入完整名稱、常用去尾碼名稱與「縣市＋鄉鎮市區」組合；含 `臺/台` 常用異體，例如「臺北市／台北市」、「臺東／台東」。
+- 新增 207 個常用國家／地區名稱與常見別稱，包括臺灣、日本、韓國、美國、加拿大、英國、法國、德國、冰島、烏克蘭、澳洲、紐西蘭等。
+- 新增地名專用讀音覆寫，修正「三重、埔里、朴子、茄萣、三地門、元長、長治、長濱」等一般單字讀音無法直接套用的地名。
+- 新增 `taiwan_admin_divisions.csv`、`common_country_region_names.csv` 與 `build_geographic_words.py`；安裝時即使重新套用 libchewing-data，也會重新生成並注入地名層，不會遺失。
+- Bundled ZYDICT2 由 76,724 詞增加至 78,427 詞；地名生成層共 1,871 個 word+pron 項目，其中 1,703 筆為新詞、168 筆更新既有同讀音權重。
+- 新增資料完整性與引擎回歸測試：固定檢查 22／368 數量、所有生成地名都存在於 bundled dictionary，並驗證三重、埔里、苗栗縣南庄鄉、美國、冰島等可由正式查詢引擎召回。
+
+## v0.1.65 / build 68
+
+- 學習儲存升級為 `ZYLEARN3`；保留 `ZYLEARN1` / `ZYLEARN2` 無痛讀取與自動遷移。
+- 跨程序保存不再以完整 snapshot 的 `max(count)` 合併，改為在 file lock 內讀取最新 generation，再重播本程序尚未落盤的 word/query/phrase delta；兩個程序同時對同一詞各 +1 時不再遺失一次學習。
+- 個別刪除改以 pending delete 狀態參與下一次 merge；舊程序之後只保存其他詞時，不會把已刪除的學習資料復活。整體「清除學習」仍由 `reset_serial` 保證較新的 reset 優先。
+- 使用者 phrase 由固定 `query[256] + pron[512]` 改為單一 `key[512] + key_kind`，容量仍維持 1024；加上並行 delta metadata 後，`ZYLearning` 結構由 1,290,288 bytes 降至 1,094,720 bytes，約降低 15.2%。
+- 主詞庫升級為 `ZYDICT2`；載入階段新增 word/pron/syllable/bucket offset sentinel、單調性、syllable ID 與 bucket word ID 範圍驗證，損壞檔在 `zy_dict_open()` 即拒絕。讀取端仍相容 `ZYDICT1`。
+- `build_native_dictionary.py`、台灣讀音修補與品牌詞注入工具同步輸出 / 接受 ZYDICT2。
+- Shared Core 新增 Windows 檔案後端：Dictionary / Conversion 在 Windows 使用 binary heap backing，Learning 使用 `_read/_write`、`LockFileEx` 與 `MoveFileEx`；macOS / POSIX 仍維持 mmap、fcntl lock、fsync 路徑。
+- 新增同詞併發 +1、刪除防復活、真實 v2→v3 migration、ZYDICT2 損壞索引拒絕與跨平台靜態回歸測試。
+
+## v0.1.64 / build 67
+
+- 將候選學習儲存升級為 Learning v2：字詞 4096、query×candidate 8192、使用者組句 1024，避免舊版 256/128/128 容量過小造成常用記憶被快速淘汰。
+- query 學習改為每個「注音查詢 × 候選」各自保留歷史，不再因同一讀音改選另一個字就覆蓋前一個候選的使用次數。
+- 字詞與 query 次數改為 32-bit lifetime count；學習字串改用 UTF-8 安全截斷。
+- 新增 stable word identity（字詞＋讀音 64-bit key）與 dictionary fingerprint；詞庫重建後可重新綁定現行 word ID，不再永久依賴 dictionary.bin 的數字 ID；若重映射暫時無法配置記憶體，不會提前接受新 fingerprint，下一次啟動仍可重試。
+- `ZYLEARN1` 舊快照可自動讀入並升級為 `ZYLEARN2`，保留舊版既有學習資料；legacy 固定長度字串採 bounded UTF-8 migration，避免異常舊檔造成越界讀取。
+- A/B snapshot 新增跨程序 file lock、載入最新 generation 後 merge、temp file + fsync + atomic rename，避免新舊輸入法程序同時存在時互相覆蓋學習；v1 ID-only 與 v2 stable-key 同字資料也會合併，不會在遷移競態中產生重複紀錄。
+- 最終確認後採 1 秒 debounce 落盤；持續輸入達門檻仍會立即保存。controller 關閉、切換 App / deactivate 與 Runtime shutdown 皆改為強制 flush；生命週期切換只提交已經選好的 staged pieces，不會因切 App 自動替未完成注音選字。
+- 清除學習改為鎖定後寫入兩份空白新 generation，避免舊程序或備援 snapshot 把已清除的學習重新帶回來。
+- 開發安裝與 Release 安裝器會先以 Cocoa quit 正常結束舊輸入法，讓 `applicationWillTerminate` 有機會保存學習；僅程序真的卡住時才使用強制結束。
+- 新增 Learning v2 容量、多候選、>255 次數、UTF-8、並行 merge、v1 migration 與 Runtime flush 回歸測試。
+
+## v0.1.63 / build 66
+
+### Enter 確認模式
+
+- 設定頁新增「輸入行為 → Enter 確認模式」，提供「瀏覽器安全模式」與「快速確認模式」。
+- 預設維持瀏覽器安全模式：選完最後候選後，下一次 Enter 才提交完整中文，避免聊天網站把候選確認鍵誤當送出。
+- 快速確認模式：最後一段候選選定的同一次 Enter 立即提交完整中文，但該次 Enter 仍由 InputMethodKit 消耗，不會傳給網頁作為聊天送出。
+- 模式以 `NSUserDefaults` 儲存，重新啟動輸入法後保留設定；未設定過的既有使用者仍預設安全模式。
+- 保留 v0.1.62 設定頁、v0.1.61 游標定位、右側注音欄與既有學習／候選行為。
+
+## v0.1.62 / build 65
+
+### 候選窗新增設定入口
+
+- 維持 v0.1.61 的 Enter、右側注音欄與游標定位行為不變。
+- 候選窗右側原本直接顯示的「清除學習」改為「設定」按鈕，降低誤觸破壞性操作的風險。
+- 新增不搶焦點的「逐音輸入法設定」頁面；第一版提供「學習資料」區塊與「清除學習資料」按鈕。
+- 清除學習仍沿用既有的二次確認、成功／失敗結果與 `ZYRuntimeClearLearning()` 路徑，不變更學習資料格式。
+- `Esc` 可先關閉設定頁；候選窗隱藏或輸入 session 結束時也會釋放設定頁資源。
+
+## v0.1.61 / build 64
+
+### 螢幕底部候選窗定位修正
+
+- 修正 `IMKTextInput attributesForCharacterIndex:lineHeightRectangle:` 的 index 使用方式：改用 inline composition 相對索引；沒有 inline session 時固定以 `0` 取得目前選取位置，不再誤用文件絕對 `markedRange`／`selectedRange`。
+- 移除 caret 取得失敗時把候選視窗定位到 `visibleFrame` 正中央的假游標 fallback，避免網頁輸入框位於螢幕底部時候選窗跳到螢幕中央。
+- caret 短暫不可用時只沿用最後一次已驗證的真實 caret；首次查詢仍不可用時不移動候選窗，等待後續有效位置。
+- 保留 v0.1.60 的四向翻面、v0.1.59 右側注音欄與 v0.1.58 Enter 狀態機。
+
+## v0.1.60 / build 63
+
+### 候選視窗游標貼附修正
+
+- 候選視窗定位改為四向翻面：預設游標右下，右側不足時先翻到游標左側，下方不足時先翻到游標上方。
+- 候選框只有在左右或上下都無法完整容納時才退回螢幕可視範圍裁切，避免寬候選框被直接釘在螢幕邊緣而遠離文字游標。
+- 保留 6 pt 游標間距、v0.1.59 右側注音欄，以及 v0.1.58 已確認正常的 Enter 狀態機。
+
+
 本文件記錄逐音輸入法的版本更新。最新版本請見 [README](README.md)。
 
 ## v0.1.59 / build 62

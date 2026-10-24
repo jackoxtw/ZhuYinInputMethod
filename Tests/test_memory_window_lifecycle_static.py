@@ -42,4 +42,14 @@ assert '_clearLearningPanel.contentView=nil' in clear
 assert '[_clearLearningPanel close]' in clear
 assert '_clearLearningView=nil' in clear
 assert '_clearLearningPanel=nil' in clear
+
+settings_start = p.find('- (void)closeSettings')
+settings_end = p.find('- (BOOL)clearLearningConfirmationVisible', settings_start)
+settings = p[settings_start:settings_end]
+assert '_settingsView.owner=nil' in settings
+assert '_settingsPanel.contentView=nil' in settings
+assert '[_settingsPanel close]' in settings
+assert '_settingsView=nil' in settings
+assert '_settingsPanel=nil' in settings
+
 print('memory window lifecycle static: OK')

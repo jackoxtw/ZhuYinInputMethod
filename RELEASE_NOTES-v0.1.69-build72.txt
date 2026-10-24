@@ -1,0 +1,15 @@
+逐音輸入法 v0.1.69 / build 72
+
+本版重點：網頁聊天 Enter 完整防誤送。
+
+1. 標準層：保留 InputMethodKit 組字期間 consume Return 的正規路徑。
+2. 完整層：新增 ZYReturnGuard，取得「輔助使用」權限後，組字期間以 CGEventTap 在瀏覽器之前攔截 Return / Keypad Enter 的 keyDown 與 keyUp。
+3. 只有逐音存在組字、已選待提交片段或特殊候選時才啟用 Guard；閒置時正常 Enter 完全不受影響。
+4. 長按 Enter 只推進一次 IME 狀態，不會因 key repeat 連續選字／提交。
+5. Emoji／中文標點特殊候選現在也會建立 marked composition，補上先前的 Enter 防護缺口。
+6. 設定 → 網頁聊天防誤送 →「完整防誤送」可開關；「授權輔助使用」由使用者主動授權，不會在一般打字途中突然跳出權限要求。
+7. 未授權時仍使用 InputMethodKit 安全路徑，不影響既有輸入。
+
+注意：
+- 系統級 active CGEventTap 依 macOS 安全模型需要「系統設定 → 隱私權與安全性 → 輔助使用」授權。
+- 本封包是在非 macOS 環境完成原始碼與靜態／C Core 回歸測試；實際 .app 仍需在 macOS 使用內附建置腳本編譯與簽署。

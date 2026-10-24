@@ -8,7 +8,8 @@ assert '_cv.panel=self;' in p, 'panel must install itself as view action owner'
 assert '[self.panel candidateViewDidChooseIndex:idx]' in p, 'view candidate click must route through panel'
 assert '[self.panel candidateViewToggleScript]' in p
 assert '[self.panel candidateViewToggleHelp]' in p
-assert '[self.panel candidateViewRequestClearLearning]' in p
+assert '[self.panel candidateViewToggleSettings]' in p
+assert '[self.owner candidateViewRequestClearLearning]' in p
 assert '[self.candidateDelegate candidatePanelDidChooseIndex:index]' in p, 'panel must forward candidate action to controller'
 assert '[self.candidateDelegate candidatePanelRequestClearLearning]' in p
 assert '[self.candidateDelegate candidatePanelConfirmClearLearning]' in p
